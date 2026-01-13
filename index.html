@@ -1,75 +1,83 @@
+<!-- /index.html -->
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Philly GPT</title>
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <header class="top">
-    <div class="brand">
-      <div class="logo">PG</div>
-      <div>
-        <div class="title">Philly GPT</div>
-        <div class="sub">Civic help for Philadelphia (311, parking, SEPTA)</div>
-      </div>
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Philly GPT</title>
+    <meta name="description" content="Simple civic help for Philadelphia." />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
 
-    <div class="right">
-      <div class="pill" id="weather">Weather: Loading…</div>
-      <div class="pill subtle">Emergency: <b>911</b></div>
-    </div>
-  </header>
-
-  <main class="wrap">
-    <section class="card">
-      <div class="cardTop">
-        <div>
-          <div class="h">Chat</div>
-          <div class="p">Ask a Philly question. I’ll give practical next steps.</div>
-        </div>
-        <button id="clear" class="btn">Clear</button>
-      </div>
-
-      <div id="msgs" class="msgs"></div>
-
-      <div class="row">
-        <textarea id="input" class="input" rows="2"
-          placeholder="Ask something… (Enter to send, Shift+Enter for new line)"></textarea>
-        <button id="send" class="btn primary">Send</button>
-      </div>
-
-      <div class="tips">Tip: Include your neighborhood or closest cross-streets for better guidance.</div>
-    </section>
-
-    <aside class="card side">
-      <div class="cardTop">
-        <div>
-          <div class="h">Quick questions</div>
-          <div class="p">Tap one to fill the box.</div>
+    <header class="header">
+      <div class="brand">
+        <div class="logo">PG</div>
+        <div class="brand-text">
+          <div class="name">Philly GPT</div>
+          <div class="tag">Simple civic help for Philadelphia</div>
         </div>
       </div>
 
-      <div class="chips" id="chips">
-        <button class="chip" data-q="How do I report a pothole in Philly?">Report a pothole</button>
-        <button class="chip" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
-        <button class="chip" data-q="How do I contact 311 and what details should I include?">Contact 311</button>
-        <button class="chip" data-q="What are the basics of parking rules in Philadelphia?">Parking basics</button>
-        <button class="chip" data-q="How do I plan a SEPTA trip and check delays?">SEPTA planning</button>
+      <div class="header-right">
+        <div class="pill" id="weatherPill" aria-label="Philadelphia weather">
+          <span class="dot"></span>
+          <span class="pill-label">Weather</span>
+          <span class="pill-value" id="weatherValue">Loading…</span>
+        </div>
+        <a class="pill danger" href="tel:911">Emergency: <strong>911</strong></a>
       </div>
+    </header>
 
-      <div class="notes">
-        <div class="nh">Notes</div>
-        <ul>
-          <li>Not affiliated with the City of Philadelphia</li>
-          <li>Don’t share sensitive personal info here</li>
-          <li>For emergencies: 911</li>
-        </ul>
-      </div>
-    </aside>
-  </main>
+    <main class="wrap">
+      <section class="card">
+        <div class="card-top">
+          <div>
+            <div class="title">Chat</div>
+            <div class="subtitle">Ask anything Philly-related. I’ll keep it practical and clear.</div>
+          </div>
+          <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+        </div>
 
-  <script src="./app.js"></script>
-</body>
+        <div class="messages" id="messages" role="log" aria-live="polite"></div>
+
+        <form class="composer" id="composer">
+          <textarea
+            id="input"
+            class="input"
+            rows="1"
+            placeholder="Type here… (Enter sends, Shift+Enter for new line)"
+            autocomplete="off"
+          ></textarea>
+          <button class="btn primary" id="sendBtn" type="submit">Send</button>
+        </form>
+      </section>
+
+      <aside class="side">
+        <div class="side-card">
+          <div class="side-title">Quick prompts</div>
+          <div class="chips" id="chips">
+            <button class="chip" type="button" data-q="How do I report a pothole in Philadelphia?">Pothole</button>
+            <button class="chip" type="button" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
+            <button class="chip" type="button" data-q="How do I contact 311 in Philly and what details should I include?">Contact 311</button>
+            <button class="chip" type="button" data-q="What are the parking basics I should know in Philadelphia?">Parking basics</button>
+            <button class="chip" type="button" data-q="How do I plan a SEPTA trip and what apps should I use?">SEPTA</button>
+          </div>
+        </div>
+
+        <div class="side-card">
+          <div class="side-title">Notes</div>
+          <ul class="notes">
+            <li>Not affiliated with the City of Philadelphia</li>
+            <li>Do not share sensitive personal info</li>
+            <li>Emergencies: call 911</li>
+          </ul>
+          <div class="meta" id="weatherMeta"></div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
 </html>
