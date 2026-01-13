@@ -1,137 +1,256 @@
-// /functions/api/chat.js
-export async function onRequest(context) {
-  const { request, env } = context;
+const $ = (id) => document.getElementById(id);
 
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  }
+const messagesEl = $("messages");
+const formEl = $("chatForm");
+const inputEl = $("input");
+const sendBtn = $("sendBtn");
+const clearBtn = $("clearBtn");
+const weatherValueEl = $("weatherValue");
+const chipsEl = $("chips");
 
-  if (request.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
+const STORAGE_KEY = "phillygpt_tourguide_chat_v1";
 
-  const apiKey = env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages Secrets (Production)." }, 500);
-  }
-
-  const model = env.OPENAI_MODEL || "gpt-5";
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400);
-  }
-
-  const messages = Array.isArray(body?.messages) ? body.messages : [];
-  const recent = messages
-    .filter((m) => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
-    .slice(-16);
-
-  const system = `
-You are Philly GPT, a practical civic helper for Philadelphia.
-
-Mandatory output rules:
-- Plain text only.
-- No markdown and no formatting symbols: do not use #, *, backticks, or bullet characters.
-- No headings. No hashtags.
-- Keep it clean: short paragraphs.
-- If you list steps, use simple numbering like "1) ... 2) ...".
-- Ask at most one short follow-up question only if needed (neighborhood/cross street).
-
-Safety:
-- If it sounds like an emergency, tell them to call 911.
-- If something is time-sensitive or may change, point them to official sources to verify.
-`.trim();
-
-  const input = [
-    { role: "system", content: system },
-    ...recent.map((m) => ({ role: m.role, content: m.content })),
-  ];
-
-  try {
-    const resp = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        input,
-        max_output_tokens: 520,
-      }),
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      const msg =
-        data?.error?.message ||
-        "OpenAI request failed. Check your API key, model name, and billing status.";
-      return json({ error: msg }, 500);
-    }
-
-    const text = extractText(data);
-    const cleaned = stripFormatting(text);
-
-    return json({ reply: cleaned }, 200);
-  } catch {
-    return json({ error: "Server error contacting OpenAI." }, 500);
-  }
+function escapeText(s) {
+  // Keeps output clean; prevents accidental HTML rendering
+  return (s ?? "").toString();
 }
 
-function extractText(data) {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
-    return data.output_text;
-  }
+function normalizeModelOutput(text) {
+  // Remove markdown-y clutter to keep UI clean:
+  // - headings, bold markers, bullets, code fences
+  let t = (text ?? "").toString();
 
-  const out = data?.output;
-  if (Array.isArray(out)) {
-    for (const item of out) {
-      const content = item?.content;
-      if (Array.isArray(content)) {
-        for (const c of content) {
-          if (c?.type === "output_text" && typeof c?.text === "string") {
-            return c.text;
-          }
-        }
-      }
-    }
-  }
-  return "";
-}
-
-function stripFormatting(text) {
-  let t = String(text || "");
-
-  t = t.replace(/`+/g, "");
-  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
-  t = t.replace(/\*\*/g, "").replace(/\*/g, "");
-  t = t.replace(/__/g, "").replace(/_/g, "");
-  t = t.replace(/^\s{0,3}>\s?/gm, "");
-  t = t.replace(/^\s*[-•]\s+/gm, "");
-  t = t.replace(/[•#]/g, "");
-  t = t.replace(/\n{3,}/g, "\n\n").trim();
-
-  return t;
-}
-
-function json(obj, status_toggle = 200) {
-  return new Response(JSON.stringify(obj), {
-    status: status_toggle,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders(),
-    },
+  // Remove code fences
+  t = t.replace(/```[\s\S]*?```/g, (block) => {
+    // Keep content without fences
+    return block.replace(/```[\w-]*\n?/g, "").replace(/```/g, "").trim();
   });
+
+  // Remove markdown headings like ### Title
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+
+  // Remove bold/italic markers
+  t = t.replace(/\*\*(.*?)\*\*/g, "$1");
+  t = t.replace(/\*(.*?)\*/g, "$1");
+  t = t.replace(/__(.*?)__/g, "$1");
+  t = t.replace(/_(.*?)_/g, "$1");
+
+  // Remove leading list markers like "- ", "* ", "• "
+  t = t.replace(/^\s*[-*•]\s+/gm, "");
+
+  // Remove numbered list formatting "1. " but keep text
+  t = t.replace(/^\s*\d+\.\s+/gm, "");
+
+  // Collapse excessive blank lines
+  t = t.replace(/\n{3,}/g, "\n\n");
+
+  return t.trim();
 }
 
-function corsHeaders() {
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addMessage(role, text) {
+  const msg = document.createElement("div");
+  msg.className = `msg ${role === "user" ? "me" : "bot"}`;
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = role === "user" ? "You" : "PG";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = escapeText(text);
+
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  messagesEl.appendChild(msg);
+
+  scrollToBottom();
+}
+
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveChat(history) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } catch {}
+}
+
+function clearChat() {
+  messagesEl.innerHTML = "";
+  saveChat([]);
+  seedWelcome();
+}
+
+function seedWelcome() {
+  addMessage(
+    "assistant",
+    "Welcome to Philly.\n\nTell me what you’re into (food, history, art, nightlife), how much time you have, and where you’re starting from. I’ll give you a simple plan with the best next stops and what to do at each."
+  );
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 140) + "px";
+}
+
+async function sendToAPI(history) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: history }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function buildSystemPrompt() {
   return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    role: "system",
+    content:
+      "You are Philly GPT, a friendly tour guide for Philadelphia. Keep answers clean and readable with no markdown formatting. Do not use hashtags, asterisks, or bullet symbols. Write in short paragraphs with clear recommendations. Include practical details: approximate neighborhoods, walking/subway suggestions, and what to order or look for. If user is vague, ask one short follow-up question. Avoid sensitive personal data.",
   };
 }
+
+async function handleSend(userText) {
+  const text = userText.trim();
+  if (!text) return;
+
+  // Render user message
+  addMessage("user", text);
+
+  // Build history for the API
+  const saved = loadSaved() || [];
+  const history = [
+    buildSystemPrompt(),
+    ...saved,
+    { role: "user", content: text },
+  ];
+
+  // UI lock
+  sendBtn.disabled = true;
+
+  // Placeholder bot bubble
+  const typing = "One sec — planning that for you…";
+  addMessage("assistant", typing);
+
+  try {
+    const data = await sendToAPI(history);
+
+    // Replace placeholder by removing last assistant bubble and adding final
+    messagesEl.removeChild(messagesEl.lastElementChild);
+
+    const clean = normalizeModelOutput(data?.reply || "");
+    addMessage("assistant", clean || "I didn’t get a response back. Try again.");
+
+    // Save (without system message)
+    const newSaved = [
+      ...(saved || []),
+      { role: "user", content: text },
+      { role: "assistant", content: clean || "" },
+    ].slice(-24); // keep it light
+    saveChat(newSaved);
+  } catch (e) {
+    messagesEl.removeChild(messagesEl.lastElementChild);
+    addMessage("assistant", `Sorry — ${e.message}`);
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+async function loadWeather() {
+  try {
+    // Free endpoint from open-meteo (no key)
+    const url =
+      "https://api.open-meteo.com/v1/forecast?latitude=39.9526&longitude=-75.1652&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FNew_York";
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+
+    const temp = Math.round(data?.current?.temperature_2m);
+    const wind = Math.round(data?.current?.wind_speed_10m);
+    const code = data?.current?.weather_code;
+
+    const desc = weatherCodeToText(code);
+    weatherValueEl.textContent = `${temp}°F · ${desc} · Wind ${wind} mph`;
+  } catch {
+    weatherValueEl.textContent = "Weather unavailable";
+  }
+}
+
+function weatherCodeToText(code) {
+  // Open-Meteo weather codes (simplified)
+  const c = Number(code);
+  if ([0].includes(c)) return "Clear";
+  if ([1, 2, 3].includes(c)) return "Cloudy";
+  if ([45, 48].includes(c)) return "Fog";
+  if ([51, 53, 55, 56, 57].includes(c)) return "Drizzle";
+  if ([61, 63, 65, 66, 67].includes(c)) return "Rain";
+  if ([71, 73, 75, 77].includes(c)) return "Snow";
+  if ([80, 81, 82].includes(c)) return "Showers";
+  if ([95, 96, 99].includes(c)) return "Thunderstorms";
+  return "Conditions";
+}
+
+// Wire up UI
+clearBtn.addEventListener("click", clearChat);
+
+inputEl.addEventListener("input", () => autoResizeTextarea(inputEl));
+
+formEl.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = inputEl.value;
+  inputEl.value = "";
+  autoResizeTextarea(inputEl);
+  handleSend(text);
+});
+
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    formEl.requestSubmit();
+  }
+});
+
+chipsEl?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-prompt]");
+  if (!btn) return;
+  const prompt = btn.getAttribute("data-prompt") || "";
+  inputEl.value = prompt;
+  autoResizeTextarea(inputEl);
+  inputEl.focus();
+});
+
+// Boot
+(function init() {
+  const saved = loadSaved() || [];
+  messagesEl.innerHTML = "";
+  if (saved.length === 0) {
+    seedWelcome();
+  } else {
+    seedWelcome();
+    for (const m of saved) {
+      if (m?.role === "user") addMessage("user", m.content);
+      if (m?.role === "assistant") addMessage("assistant", normalizeModelOutput(m.content));
+    }
+  }
+
+  loadWeather();
+  setInterval(loadWeather, 10 * 60 * 1000); // update every 10 minutes
+})();
