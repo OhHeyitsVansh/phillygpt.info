@@ -6,77 +6,61 @@
   <title>Philly GPT</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-
 <body>
-  <div class="bg"></div>
-
-  <header class="topbar">
+  <header class="top">
     <div class="brand">
       <div class="logo">PG</div>
-      <div class="brandText">
-        <div class="brandTitle">Philly GPT</div>
-        <div class="brandSubtitle">Civic help for Philadelphia (311, parking basics, SEPTA tips)</div>
+      <div>
+        <div class="title">Philly GPT</div>
+        <div class="sub">Civic help for Philadelphia (311, parking, SEPTA)</div>
       </div>
     </div>
 
-    <div class="topbarRight">
-      <div class="pill" id="weatherPill" aria-live="polite">
-        Weather: <span class="muted">Loading…</span>
-      </div>
-      <div class="pill subtle">For emergencies call <b>911</b></div>
+    <div class="right">
+      <div class="pill" id="weather">Weather: Loading…</div>
+      <div class="pill subtle">Emergency: <b>911</b></div>
     </div>
   </header>
 
-  <main class="layout">
-    <section class="card chatCard">
-      <div class="cardHeader">
+  <main class="wrap">
+    <section class="card">
+      <div class="cardTop">
         <div>
-          <div class="cardTitle">Chat</div>
-          <div class="cardSubtitle">Ask a Philly question. I’ll give practical steps and what to check next.</div>
+          <div class="h">Chat</div>
+          <div class="p">Ask a Philly question. I’ll give practical next steps.</div>
         </div>
-        <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+        <button id="clear" class="btn">Clear</button>
       </div>
 
-      <div class="messages" id="messages" role="log" aria-live="polite"></div>
+      <div id="msgs" class="msgs"></div>
 
-      <div class="composer">
-        <textarea
-          id="input"
-          class="input"
-          rows="2"
-          placeholder="Type here… (Enter to send, Shift+Enter for new line)"
-        ></textarea>
-        <button class="btn primary" id="sendBtn" type="button">Send</button>
+      <div class="row">
+        <textarea id="input" class="input" rows="2"
+          placeholder="Ask something… (Enter to send, Shift+Enter for new line)"></textarea>
+        <button id="send" class="btn primary">Send</button>
       </div>
 
-      <div class="hintRow">
-        <span class="hintDot"></span>
-        <span class="hintText">
-          Tip: Include your neighborhood or closest cross-streets for better guidance.
-        </span>
-      </div>
+      <div class="tips">Tip: Include your neighborhood or closest cross-streets for better guidance.</div>
     </section>
 
-    <aside class="card sideCard">
-      <div class="cardHeader">
+    <aside class="card side">
+      <div class="cardTop">
         <div>
-          <div class="cardTitle">Quick questions</div>
-          <div class="cardSubtitle">Tap one to fill the box.</div>
+          <div class="h">Quick questions</div>
+          <div class="p">Tap one to fill the box.</div>
         </div>
       </div>
 
-      <div class="chipGrid" id="chips">
+      <div class="chips" id="chips">
         <button class="chip" data-q="How do I report a pothole in Philly?">Report a pothole</button>
         <button class="chip" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
-        <button class="chip" data-q="What’s the best way to contact 311 and what info should I include?">Contact 311</button>
+        <button class="chip" data-q="How do I contact 311 and what details should I include?">Contact 311</button>
         <button class="chip" data-q="What are the basics of parking rules in Philadelphia?">Parking basics</button>
         <button class="chip" data-q="How do I plan a SEPTA trip and check delays?">SEPTA planning</button>
       </div>
 
-      <div class="divider"></div>
-
       <div class="notes">
-        <div class="notesTitle">Notes</div>
+        <div class="nh">Notes</div>
         <ul>
           <li>Not affiliated with the City of Philadelphia</li>
           <li>Don’t share sensitive personal info here</li>
@@ -85,10 +69,6 @@
       </div>
     </aside>
   </main>
-
-  <footer class="footer">
-    <span class="muted">© Philly GPT · Built for community help</span>
-  </footer>
 
   <script src="./app.js"></script>
 </body>
