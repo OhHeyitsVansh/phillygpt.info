@@ -1,263 +1,114 @@
-// Philly GPT - Client
+const msgs = document.getElementById("msgs");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const clearBtn = document.getElementById("clear");
+const chips = document.getElementById("chips");
+const weatherEl = document.getElementById("weather");
 
-const messagesEl = document.getElementById("messages");
-const composer = document.getElementById("composer");
-const inputEl = document.getElementById("input");
-const sendBtn = document.getElementById("sendBtn");
-const clearBtn = document.getElementById("clearBtn");
-const chipsEl = document.getElementById("chips");
+let history = [];
+let busy = false;
 
-const weatherValueEl = document.getElementById("weatherValue");
-const weatherMetaEl = document.getElementById("weatherMeta");
-
-const STORAGE_KEY = "phillygpt_chat_v1";
-
-function sanitizePlainText(text) {
-  // Remove markdown symbols and patterns so the UI stays clean.
-  let t = String(text ?? "");
-
-  // Remove backticks
-  t = t.replace(/`+/g, "");
-
-  // Remove headings like "### Title"
-  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
-
-  // Remove emphasis markers
-  t = t.replace(/\*\*/g, "");
-  t = t.replace(/\*/g, "");
-  t = t.replace(/__/g, "");
-  t = t.replace(/_/g, "");
-
-  // Remove blockquotes
-  t = t.replace(/^\s{0,3}>\s?/gm, "");
-
-  // Remove bullets "- " or "• "
-  t = t.replace(/^\s*[-•]\s+/gm, "");
-
-  // Collapse excessive blank lines
-  t = t.replace(/\n{3,}/g, "\n\n").trim();
-
-  return t;
-}
-
-function scrollToBottom() {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function addMessage(role, text) {
+function add(role, text) {
   const row = document.createElement("div");
-  row.className = `row ${role}`;
+  row.className = "msg" + (role === "user" ? " me" : "");
+
+  const badge = document.createElement("div");
+  badge.className = "badge";
+  badge.textContent = role === "user" ? "ME" : "PG";
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.textContent = sanitizePlainText(text);
+  bubble.textContent = text;
 
-  if (role !== "user") {
-    const avatar = document.createElement("div");
-    avatar.className = "avatar";
-    avatar.textContent = "PG";
-    row.appendChild(avatar);
-  }
-
+  if (role !== "user") row.appendChild(badge);
   row.appendChild(bubble);
-  messagesEl.appendChild(row);
-  scrollToBottom();
+
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+  return bubble;
 }
 
-function setBusy(isBusy) {
-  sendBtn.disabled = isBusy;
-  inputEl.disabled = isBusy;
+function setBusy(on) {
+  busy = on;
+  sendBtn.disabled = on;
+  input.disabled = on;
 }
 
-function loadChat() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+function intro() {
+  add(
+    "assistant",
+    "Yo—welcome to Philly. Tell me what’s up (and your neighborhood/cross-streets if you’ve got them) and I’ll point you to the right next steps—311, parking rules, SEPTA, or the exact city page to use. If someone’s in danger, call 911."
+  );
 }
 
-function saveChat(chat) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(chat));
+function reset() {
+  history = [];
+  msgs.innerHTML = "";
+  intro();
 }
 
-function renderChat(chat) {
-  messagesEl.innerHTML = "";
-  for (const m of chat) addMessage(m.role, m.content);
-}
+async function send() {
+  const text = input.value.trim();
+  if (!text || busy) return;
 
-function autoGrow() {
-  inputEl.style.height = "0px";
-  const h = Math.min(inputEl.scrollHeight, 160);
-  inputEl.style.height = h + "px";
-}
+  input.value = "";
+  add("user", text);
+  history.push({ role: "user", content: text });
 
-async function sendMessage(userText) {
-  const text = userText.trim();
-  if (!text) return;
-
-  const chat = loadChat() ?? [];
-  chat.push({ role: "user", content: text });
-  saveChat(chat);
-
-  addMessage("user", text);
-  inputEl.value = "";
-  autoGrow();
   setBusy(true);
-
-  // Placeholder assistant bubble
-  addMessage("assistant", "Working on it…");
+  const bubble = add("assistant", "Working on it…");
 
   try {
-    const resp = await fetch("/api/chat", {
+    const r = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: chat }),
+      body: JSON.stringify({ message: text, history: history.slice(-12) }),
     });
 
-    const data = await resp.json().catch(() => ({}));
-
-    // Remove placeholder
-    messagesEl.lastChild?.remove();
-
-    if (!resp.ok) {
-      const msg = data?.error || "Something went wrong. Please try again.";
-      addMessage("assistant", msg);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      bubble.textContent = "Error: " + (data.error || `Request failed (${r.status})`);
+      setBusy(false);
       return;
     }
 
-    const reply = data?.reply || "I didn’t get a response. Please try again.";
-    chat.push({ role: "assistant", content: reply });
-    saveChat(chat);
-    addMessage("assistant", reply);
-  } catch {
-    messagesEl.lastChild?.remove();
-    addMessage("assistant", "Network error. Please check your connection and try again.");
+    bubble.textContent = (data.reply || "").trim() || "No response came back. Try again.";
+    history.push({ role: "assistant", content: bubble.textContent });
+  } catch (e) {
+    bubble.textContent = "Error: " + (e?.message || "Network error");
   } finally {
     setBusy(false);
-    inputEl.focus();
   }
-}
-
-function seedIntroIfEmpty() {
-  const existing = loadChat();
-  if (existing && existing.length) {
-    renderChat(existing);
-    return;
-  }
-
-  const intro =
-    "Welcome to Philly GPT.\n\n" +
-    "Tell me what you’re trying to get done (and your neighborhood or closest cross streets if it matters). " +
-    "I’ll give you the most practical next steps: who to contact, what details to collect, and what to try if you don’t get a response.\n\n" +
-    "Examples: “Streetlight out on my block,” “How do I report illegal dumping?” or “Parking ticket question.”";
-
-  const chat = [{ role: "assistant", content: intro }];
-  saveChat(chat);
-  renderChat(chat);
-}
-
-composer.addEventListener("submit", (e) => {
-  e.preventDefault();
-  sendMessage(inputEl.value);
-});
-
-inputEl.addEventListener("input", autoGrow);
-
-inputEl.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    composer.requestSubmit();
-  }
-});
-
-clearBtn.addEventListener("click", () => {
-  localStorage.removeItem(STORAGE_KEY);
-  seedIntroIfEmpty();
-  inputEl.focus();
-});
-
-chipsEl.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-q]");
-  if (!btn) return;
-  inputEl.value = btn.getAttribute("data-q");
-  autoGrow();
-  inputEl.focus();
-});
-
-// Weather (Philadelphia) via Open-Meteo (no API key)
-const WEATHER_KEY = "phillygpt_weather_v1";
-const WEATHER_TTL_MS = 10 * 60 * 1000;
-
-function weatherCodeToText(code) {
-  const map = {
-    0: "Clear",
-    1: "Mostly clear",
-    2: "Partly cloudy",
-    3: "Cloudy",
-    45: "Fog",
-    48: "Fog",
-    51: "Light drizzle",
-    53: "Drizzle",
-    55: "Heavy drizzle",
-    61: "Light rain",
-    63: "Rain",
-    65: "Heavy rain",
-    71: "Light snow",
-    73: "Snow",
-    75: "Heavy snow",
-    80: "Rain showers",
-    81: "Showers",
-    82: "Heavy showers",
-    95: "Thunderstorm",
-  };
-  return map[code] || "Weather";
 }
 
 async function loadWeather() {
   try {
-    const cachedRaw = localStorage.getItem(WEATHER_KEY);
-    if (cachedRaw) {
-      const cached = JSON.parse(cachedRaw);
-      if (Date.now() - cached.ts < WEATHER_TTL_MS) {
-        weatherValueEl.textContent = cached.value;
-        weatherMetaEl.textContent = cached.meta || "";
-        return;
-      }
-    }
-
-    const url =
-      "https://api.open-meteo.com/v1/forecast" +
-      "?latitude=39.9526&longitude=-75.1652" +
-      "&current=temperature_2m,weather_code,wind_speed_10m" +
-      "&temperature_unit=fahrenheit&wind_speed_unit=mph" +
-      "&timezone=America%2FNew_York";
-
-    const res = await fetch(url);
-    const j = await res.json();
-
-    const temp = Math.round(j?.current?.temperature_2m);
-    const code = j?.current?.weather_code;
-    const wind = Math.round(j?.current?.wind_speed_10m);
-
-    const desc = weatherCodeToText(code);
-    const value = `${temp}°F • ${desc}`;
-    const meta = `Wind: ${wind} mph`;
-
-    weatherValueEl.textContent = value;
-    weatherMetaEl.textContent = meta;
-
-    localStorage.setItem(WEATHER_KEY, JSON.stringify({ ts: Date.now(), value, meta }));
+    const r = await fetch("/api/weather", { cache: "no-store" });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "weather error");
+    weatherEl.innerHTML = `Weather: <b>${data.tempF}°F</b> · ${data.summary} · <span style="opacity:.7">Wind ${data.windMph} mph</span>`;
   } catch {
-    weatherValueEl.textContent = "Unavailable";
-    weatherMetaEl.textContent = "";
+    weatherEl.textContent = "Weather: Unavailable";
   }
 }
 
-// Init
-seedIntroIfEmpty();
-autoGrow();
+sendBtn.addEventListener("click", send);
+clearBtn.addEventListener("click", reset);
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+chips.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-q]");
+  if (!b) return;
+  input.value = b.getAttribute("data-q");
+  input.focus();
+});
+
+reset();
 loadWeather();
-setInterval(loadWeather, WEATHER_TTL_MS);
+setInterval(loadWeather, 10 * 60 * 1000);
