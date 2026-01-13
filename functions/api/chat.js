@@ -1,144 +1,81 @@
-export async function onRequest(context) {
-  const { request, env } = context;
-
-  // CORS preflight
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  }
-
-  if (request.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
-
-  const apiKey = env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages Secrets (Production)." }, 500);
-  }
-
-  const model = env.OPENAI_MODEL || "gpt-5";
-
-  let body;
+export async function onRequestPost({ request, env }) {
   try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400);
-  }
+    const apiKey = env.OPENAI_API_KEY;
+    if (!apiKey) return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages (Production)." }, 500);
 
-  const messages = Array.isArray(body?.messages) ? body.messages : [];
-  const recent = messages
-    .filter((m) => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
-    .slice(-16);
+    const body = await request.json().catch(() => ({}));
+    const message = (body?.message || "").trim();
+    const history = Array.isArray(body?.history) ? body.history : [];
 
-  const system = `
-You are Philly GPT, a practical civic helper for Philadelphia.
+    if (!message) return json({ error: "Missing message" }, 400);
 
-Output rules (mandatory):
-- Return plain text only.
-- Do NOT use markdown or formatting symbols (no #, no *, no backticks, no bullet characters).
-- No headings. No hashtags.
-- Keep it clean with short paragraphs.
-- If you list steps, use simple numbering like "1) ... 2) ...".
-- Ask one short follow-up question only when needed (neighborhood/cross-street).
+    const system =
+      "You are Philly GPT, a practical civic helper for Philadelphia. " +
+      "Give step-by-step next actions and what info to gather. " +
+      "Suggest official sources (City of Philadelphia, 311, SEPTA) when relevant. " +
+      "Not affiliated with any government. If it’s an emergency, tell them to call 911.";
 
-Safety:
-- For emergencies direct to 911.
-- For time-sensitive details, point users to official sources.
-`.trim();
+    const trimmed = history
+      .filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .slice(-12);
 
-  const input = [
-    { role: "system", content: system },
-    ...recent.map((m) => ({ role: m.role, content: m.content })),
-  ];
+    const input = [
+      { role: "system", content: system },
+      ...trimmed,
+      { role: "user", content: message },
+    ];
 
-  try {
-    const resp = await fetch("https://api.openai.com/v1/responses", {
+    const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model,
+        model: env.OPENAI_MODEL || "gpt-4.1-mini",
         input,
-        max_output_tokens: 550,
+        temperature: 0.4,
+        max_output_tokens: 500,
       }),
     });
 
-    const data = await resp.json();
+    const raw = await r.text();
+    let data = null;
+    try { data = JSON.parse(raw); } catch {}
 
-    if (!resp.ok) {
-      const msg =
-        data?.error?.message ||
-        "OpenAI request failed. Check your API key, model name, and billing status.";
-      return json({ error: msg }, 500);
+    if (!r.ok) {
+      const err = data?.error?.message || `OpenAI error (${r.status})`;
+      return json({ error: err }, 502);
     }
 
-    const text = extractText(data);
-    const cleaned = stripFormatting(text);
-
-    return json({ reply: cleaned }, 200);
-  } catch {
-    return json({ error: "Server error contacting OpenAI." }, 500);
+    const reply = extractText(data) || "No response text returned.";
+    return json({ reply }, 200);
+  } catch (e) {
+    return json({ error: e?.message || "Server error" }, 500);
   }
 }
 
-function extractText(data) {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
-    return data.output_text;
-  }
-
-  const out = data?.output;
-  if (Array.isArray(out)) {
-    for (const item of out) {
-      const content = item?.content;
-      if (Array.isArray(content)) {
-        for (const c of content) {
-          if (c?.type === "output_text" && typeof c?.text === "string") {
-            return c.text;
-          }
-        }
-      }
+function extractText(resp) {
+  if (typeof resp?.output_text === "string" && resp.output_text.trim()) return resp.output_text.trim();
+  const out = resp?.output;
+  if (!Array.isArray(out)) return "";
+  let t = "";
+  for (const item of out) {
+    const c = item?.content;
+    if (!Array.isArray(c)) continue;
+    for (const part of c) {
+      if (part?.type === "output_text" && typeof part?.text === "string") t += part.text;
     }
   }
-  return "";
-}
-
-function stripFormatting(text) {
-  let t = String(text || "");
-
-  // Remove markdown-y bits to ensure clean output.
-  t = t.replace(/`+/g, "");
-  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
-  t = t.replace(/\*\*/g, "");
-  t = t.replace(/\*/g, "");
-  t = t.replace(/__/g, "");
-  t = t.replace(/_/g, "");
-  t = t.replace(/^\s{0,3}>\s?/gm, "");
-  t = t.replace(/^\s*[-•]\s+/gm, "");
-
-  // Also remove common "•" and stray "#"
-  t = t.replace(/[•#]/g, "");
-
-  // Trim and normalize spacing
-  t = t.replace(/\n{3,}/g, "\n\n").trim();
-
-  return t;
+  return t.trim();
 }
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders(),
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
     },
   });
-}
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
 }
