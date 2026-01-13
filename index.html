@@ -1,89 +1,111 @@
 <!-- /index.html -->
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#071217" />
-  <title>Philly GPT</title>
-  <meta name="description" content="A simple Philadelphia tour guide chat." />
-  <link rel="stylesheet" href="/styles.css" />
-</head>
-<body>
-  <div class="bg"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#061826" />
+    <title>Philly GPT</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
 
-  <header class="top">
-    <div class="brand">
-      <div class="logo" aria-hidden="true">PG</div>
-      <div class="brandText">
-        <div class="title">Philly GPT</div>
-        <div class="subtitle">Your local tour guide for food, neighborhoods, museums, and day plans</div>
-      </div>
-    </div>
-
-    <div class="status" aria-live="polite">
-      <div class="pill" id="weatherPill" title="Philadelphia weather">
-        <span class="dot"></span>
-        <span class="label">Philadelphia</span>
-        <span class="value" id="weatherValue">Loading weather…</span>
-      </div>
-      <a class="pill emergency" href="tel:911">Emergency: 911</a>
-    </div>
-  </header>
-
-  <main class="wrap">
-    <section class="card">
-      <div class="cardHead">
-        <div>
-          <div class="cardTitle">Chat</div>
-          <div class="cardSub">Tell me your vibe, time, budget, and where you’re starting. I’ll plan it.</div>
+    <main class="wrap">
+      <!-- Header -->
+      <header class="top">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">PG</div>
+          <div class="brandText">
+            <div class="brandName">Philly GPT</div>
+            <div class="brandTag">
+              Your local tour guide for food, neighborhoods, museums, and day plans
+            </div>
+          </div>
         </div>
-        <button class="ghost" id="clearBtn" type="button">Clear</button>
-      </div>
 
-      <div class="messages" id="messages" aria-live="polite"></div>
+        <div class="topPills">
+          <div class="pill" id="weatherPill">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="pillLabel">Philadelphia</span>
+            <span class="pillValue" id="weatherValue">Loading weather…</span>
+          </div>
 
-      <form class="composer" id="chatForm" autocomplete="off">
-        <textarea
-          id="input"
-          rows="1"
-          placeholder="Try: ‘1 day in Philly, love history + good food, starting in Center City.’"
-          aria-label="Type your message"
-        ></textarea>
-        <button class="send" id="sendBtn" type="submit">Send</button>
-      </form>
+          <a class="pill pillLink" href="tel:911" rel="noopener">
+            Emergency: <strong>911</strong>
+          </a>
+        </div>
+      </header>
 
-      <div class="hint">Tip: add a neighborhood (Old City, Fishtown, Rittenhouse) and budget (cheap / mid / splurge).</div>
-    </section>
+      <!-- Chat card -->
+      <section class="card chatCard" aria-label="Chat">
+        <div class="cardHeader">
+          <div>
+            <div class="cardTitle">Chat</div>
+            <div class="cardSubtitle">
+              Tell me your vibe, time, budget, and where you’re starting. I’ll plan it.
+            </div>
+          </div>
+          <button class="btnGhost" id="clearBtn" type="button">Clear</button>
+        </div>
 
-    <aside class="card side">
-      <div class="sideTitle">Quick prompts</div>
-      <div class="chips" id="chips">
-        <button class="chip" type="button" data-prompt="Plan a perfect first-time day in Philly (walkable, iconic, good food).">First-time day plan</button>
-        <button class="chip" type="button" data-prompt="Make a food crawl with 4 stops and exactly what to order at each.">Food crawl</button>
-        <button class="chip" type="button" data-prompt="What should I do in Old City for 3 hours? Keep it simple.">Old City (3 hours)</button>
-        <button class="chip" type="button" data-prompt="Best museums and how to group them in half a day.">Museums (half day)</button>
-        <button class="chip" type="button" data-prompt="Give me a rainy-day plan in Philly that still feels fun.">Rainy day plan</button>
-        <button class="chip" type="button" data-prompt="SEPTA basics: how to pay, what to avoid, and how to plan a route.">SEPTA basics</button>
-      </div>
+        <div class="messages" id="messages" aria-live="polite"></div>
 
-      <div class="divider"></div>
+        <div class="composerWrap">
+          <div class="composer">
+            <textarea
+              id="input"
+              rows="1"
+              placeholder="Try: “1 day in Philly, love history + good food, starting in Center City.”"
+              autocomplete="off"
+            ></textarea>
+            <button class="btnPrimary" id="sendBtn" type="button">Send</button>
+          </div>
+          <div class="hint">
+            Tip: add a neighborhood (Old City, Fishtown, Rittenhouse) and budget (cheap / mid / splurge).
+          </div>
+        </div>
+      </section>
 
-      <div class="sideTitle">Notes</div>
-      <ul class="notes">
-        <li>Not affiliated with the City of Philadelphia</li>
-        <li>Don’t share sensitive personal information</li>
-        <li>For emergencies, call 911</li>
-      </ul>
-    </aside>
-  </main>
+      <!-- Bottom panels -->
+      <section class="bottomGrid">
+        <details class="card" id="quickCard" open>
+          <summary class="summaryRow">
+            <span>Quick prompts</span>
+            <span class="chev" aria-hidden="true"></span>
+          </summary>
+          <div class="chipRow" id="quickPrompts">
+            <button class="chip" data-prompt="First-time day plan (8 hours) starting in Center City.">First-time day plan</button>
+            <button class="chip" data-prompt="Food crawl: iconic Philly eats, mid budget, walkable.">Food crawl</button>
+            <button class="chip" data-prompt="Old City plan (3 hours): history, sights, and a coffee stop.">Old City (3 hours)</button>
+            <button class="chip" data-prompt="Museums half-day plan: pick 2–3 museums + lunch nearby.">Museums (half day)</button>
+            <button class="chip" data-prompt="Rainy day plan: indoor activities + cozy food.">Rainy day plan</button>
+            <button class="chip" data-prompt="SEPTA basics: best ways to get around, fares, and tips.">SEPTA basics</button>
+          </div>
+        </details>
 
-  <footer class="foot">
-    <div class="footInner">
-      <span>Philly GPT</span><span class="sep">•</span><span>Tour guide mode</span>
-    </div>
-  </footer>
+        <details class="card" id="notesCard" open>
+          <summary class="summaryRow">
+            <span>Notes</span>
+            <span class="chev" aria-hidden="true"></span>
+          </summary>
+          <ul class="notes">
+            <li>Not affiliated with the City of Philadelphia</li>
+            <li>Do not share sensitive personal info</li>
+            <li>For emergencies, call 911</li>
+          </ul>
+          <div class="mini" id="weatherMini"></div>
+        </details>
+      </section>
 
-  <script src="/chat.js" defer></script>
-</body>
+      <footer class="foot">
+        <span>© <span id="year"></span> Philly GPT</span>
+      </footer>
+    </main>
+
+    <script src="/chat.js" defer></script>
+  </body>
 </html>
