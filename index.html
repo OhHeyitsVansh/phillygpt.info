@@ -1,111 +1,92 @@
 <!-- /index.html -->
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <meta name="theme-color" content="#061826" />
-    <title>Philly GPT</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <div class="bg"></div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1620" />
+  <title>Philly GPT</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
 
-    <main class="wrap">
-      <!-- Header -->
-      <header class="top">
-        <div class="brand">
-          <div class="logo" aria-hidden="true">PG</div>
-          <div class="brandText">
-            <div class="brandName">Philly GPT</div>
-            <div class="brandTag">
-              Your local tour guide for food, neighborhoods, museums, and day plans
-            </div>
-          </div>
+<body>
+  <div class="bg"></div>
+
+  <main class="app" role="application" aria-label="Philly GPT">
+    <header class="top">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">PG</div>
+        <div class="brandText">
+          <div class="brandName">Philly GPT</div>
+          <div class="brandTag">Tour guide for food, neighborhoods, museums, and day plans</div>
+        </div>
+      </div>
+
+      <div class="topRight">
+        <div class="pill" id="weatherPill" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="pillLabel">Philadelphia</span>
+          <span class="pillValue" id="weatherText">Loading weather…</span>
         </div>
 
-        <div class="topPills">
-          <div class="pill" id="weatherPill">
-            <span class="dot" aria-hidden="true"></span>
-            <span class="pillLabel">Philadelphia</span>
-            <span class="pillValue" id="weatherValue">Loading weather…</span>
-          </div>
+        <a class="pill danger" href="tel:911" aria-label="Call 911">
+          Emergency: <strong>911</strong>
+        </a>
+      </div>
+    </header>
 
-          <a class="pill pillLink" href="tel:911" rel="noopener">
-            Emergency: <strong>911</strong>
-          </a>
+    <section class="card chatCard" aria-label="Chat">
+      <div class="cardHead">
+        <div>
+          <div class="cardTitle">Chat</div>
+          <div class="cardSub">Tell me your vibe, time, budget, and where you’re starting. I’ll plan it.</div>
         </div>
-      </header>
+        <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+      </div>
 
-      <!-- Chat card -->
-      <section class="card chatCard" aria-label="Chat">
-        <div class="cardHeader">
-          <div>
-            <div class="cardTitle">Chat</div>
-            <div class="cardSubtitle">
-              Tell me your vibe, time, budget, and where you’re starting. I’ll plan it.
-            </div>
-          </div>
-          <button class="btnGhost" id="clearBtn" type="button">Clear</button>
+      <div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div>
+
+      <div class="composerWrap">
+        <form class="composer" id="chatForm" autocomplete="off">
+          <textarea
+            id="chatInput"
+            class="input"
+            rows="1"
+            placeholder="Try: “1 day in Philly, love history + good food, starting in Center City”"
+            aria-label="Message"
+          ></textarea>
+          <button class="btn primary" id="sendBtn" type="submit">Send</button>
+        </form>
+        <div class="hint">
+          Tip: add a neighborhood (Old City, Fishtown, Rittenhouse) and budget (cheap / mid / splurge).
         </div>
+      </div>
+    </section>
 
-        <div class="messages" id="messages" aria-live="polite"></div>
+    <section class="card sideCard" aria-label="Quick prompts and notes">
+      <div class="cardTitle">Quick prompts</div>
+      <div class="chips" id="chips">
+        <button class="chip" type="button">First-time day plan</button>
+        <button class="chip" type="button">Food crawl</button>
+        <button class="chip" type="button">Old City (3 hours)</button>
+        <button class="chip" type="button">Museums (half day)</button>
+        <button class="chip" type="button">Rainy day plan</button>
+        <button class="chip" type="button">SEPTA basics</button>
+      </div>
 
-        <div class="composerWrap">
-          <div class="composer">
-            <textarea
-              id="input"
-              rows="1"
-              placeholder="Try: “1 day in Philly, love history + good food, starting in Center City.”"
-              autocomplete="off"
-            ></textarea>
-            <button class="btnPrimary" id="sendBtn" type="button">Send</button>
-          </div>
-          <div class="hint">
-            Tip: add a neighborhood (Old City, Fishtown, Rittenhouse) and budget (cheap / mid / splurge).
-          </div>
-        </div>
-      </section>
+      <hr class="sep" />
 
-      <!-- Bottom panels -->
-      <section class="bottomGrid">
-        <details class="card" id="quickCard" open>
-          <summary class="summaryRow">
-            <span>Quick prompts</span>
-            <span class="chev" aria-hidden="true"></span>
-          </summary>
-          <div class="chipRow" id="quickPrompts">
-            <button class="chip" data-prompt="First-time day plan (8 hours) starting in Center City.">First-time day plan</button>
-            <button class="chip" data-prompt="Food crawl: iconic Philly eats, mid budget, walkable.">Food crawl</button>
-            <button class="chip" data-prompt="Old City plan (3 hours): history, sights, and a coffee stop.">Old City (3 hours)</button>
-            <button class="chip" data-prompt="Museums half-day plan: pick 2–3 museums + lunch nearby.">Museums (half day)</button>
-            <button class="chip" data-prompt="Rainy day plan: indoor activities + cozy food.">Rainy day plan</button>
-            <button class="chip" data-prompt="SEPTA basics: best ways to get around, fares, and tips.">SEPTA basics</button>
-          </div>
-        </details>
+      <div class="cardTitle">Notes</div>
+      <ul class="notes">
+        <li>Not affiliated with the City of Philadelphia</li>
+        <li>Don’t share sensitive personal information</li>
+        <li>For emergencies, call 911</li>
+      </ul>
 
-        <details class="card" id="notesCard" open>
-          <summary class="summaryRow">
-            <span>Notes</span>
-            <span class="chev" aria-hidden="true"></span>
-          </summary>
-          <ul class="notes">
-            <li>Not affiliated with the City of Philadelphia</li>
-            <li>Do not share sensitive personal info</li>
-            <li>For emergencies, call 911</li>
-          </ul>
-          <div class="mini" id="weatherMini"></div>
-        </details>
-      </section>
+      <div class="footerTiny">Philly GPT · Tour guide mode</div>
+    </section>
+  </main>
 
-      <footer class="foot">
-        <span>© <span id="year"></span> Philly GPT</span>
-      </footer>
-    </main>
-
-    <script src="/chat.js" defer></script>
-  </body>
+  <script defer src="./chat.js"></script>
+</body>
 </html>
