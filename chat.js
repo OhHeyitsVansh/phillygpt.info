@@ -10,6 +10,8 @@ const weatherValueEl = $("weatherValue");
 const chipsEl = $("chips");
 
 const STORAGE_KEY = "phillygpt_tourguide_chat_v1";
+const WEATHER_TTL_MS = 10 * 60 * 1000;
+const WEATHER_CACHE_KEY = "phillygpt_weather_cache_v1";
 
 function normalizeOutput(text) {
   let t = String(text ?? "");
@@ -23,6 +25,7 @@ function normalizeOutput(text) {
   t = t.replace(/__(.*?)__/g, "$1").replace(/_(.*?)_/g, "$1");
   t = t.replace(/^\s*[-*•]\s+/gm, "");
   t = t.replace(/^\s*\d+\.\s+/gm, "");
+  t = t.replace(/[•#]/g, "");
   t = t.replace(/\n{3,}/g, "\n\n").trim();
 
   return t;
@@ -132,4 +135,105 @@ function weatherCodeToText(code) {
   const c = Number(code);
   if (c === 0) return "Clear";
   if (c === 1 || c === 2 || c === 3) return "Cloudy";
-  i
+  if (c === 45 || c === 48) return "Fog";
+  if (c === 51 || c === 53 || c === 55 || c === 56 || c === 57) return "Drizzle";
+  if (c === 61 || c === 63 || c === 65 || c === 66 || c === 67) return "Rain";
+  if (c === 71 || c === 73 || c === 75 || c === 77) return "Snow";
+  if (c === 80 || c === 81 || c === 82) return "Showers";
+  if (c === 95 || c === 96 || c === 99) return "Thunderstorms";
+  return "Conditions";
+}
+
+function loadWeatherCache() {
+  try {
+    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    if (!c?.ts || !c?.value) return null;
+    if (Date.now() - c.ts > WEATHER_TTL_MS) return null;
+    return c.value;
+  } catch {
+    return null;
+  }
+}
+
+function saveWeatherCache(value) {
+  try {
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), value }));
+  } catch {}
+}
+
+async function loadWeather() {
+  const cached = loadWeatherCache();
+  if (cached) {
+    weatherValueEl.textContent = cached;
+    return;
+  }
+
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast?latitude=39.9526&longitude=-75.1652&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FNew_York";
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+
+    const temp = Math.round(data?.current?.temperature_2m);
+    const wind = Math.round(data?.current?.wind_speed_10m);
+    const code = data?.current?.weather_code;
+    const desc = weatherCodeToText(code);
+
+    const value = `${temp}°F · ${desc} · Wind ${wind} mph`;
+    weatherValueEl.textContent = value;
+    saveWeatherCache(value);
+  } catch {
+    weatherValueEl.textContent = "Weather unavailable";
+  }
+}
+
+// Events
+clearBtn.addEventListener("click", () => {
+  messagesEl.innerHTML = "";
+  saveChat([]);
+  seedWelcome();
+});
+
+inputEl.addEventListener("input", () => autoResize(inputEl));
+
+formEl.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = inputEl.value;
+  inputEl.value = "";
+  autoResize(inputEl);
+  handleSend(text);
+});
+
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    formEl.requestSubmit();
+  }
+});
+
+chipsEl?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-prompt]");
+  if (!btn) return;
+  inputEl.value = btn.getAttribute("data-prompt") || "";
+  autoResize(inputEl);
+  inputEl.focus();
+});
+
+// Boot
+(function init() {
+  const saved = loadSaved();
+
+  messagesEl.innerHTML = "";
+  seedWelcome();
+
+  for (const m of saved) {
+    if (m?.role === "user") addMessage("user", m.content);
+    if (m?.role === "assistant") addMessage("assistant", normalizeOutput(m.content));
+  }
+
+  autoResize(inputEl);
+  loadWeather();
+  setInterval(loadWeather, WEATHER_TTL_MS);
+})();
