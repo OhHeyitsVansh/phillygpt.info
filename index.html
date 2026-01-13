@@ -1,83 +1,93 @@
-<!-- /index.html -->
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Philly GPT</title>
-    <meta name="description" content="Simple civic help for Philadelphia." />
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <div class="bg"></div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#071217" />
+  <title>Philly GPT</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
 
-    <header class="header">
-      <div class="brand">
-        <div class="logo">PG</div>
-        <div class="brand-text">
-          <div class="name">Philly GPT</div>
-          <div class="tag">Simple civic help for Philadelphia</div>
-        </div>
+  <header class="top">
+    <div class="brand" role="banner">
+      <div class="logo" aria-hidden="true">PG</div>
+      <div class="brandText">
+        <div class="title">Philly GPT</div>
+        <div class="subtitle">Your local tour guide for food, neighborhoods, museums, and day plans</div>
       </div>
+    </div>
 
-      <div class="header-right">
-        <div class="pill" id="weatherPill" aria-label="Philadelphia weather">
-          <span class="dot"></span>
-          <span class="pill-label">Weather</span>
-          <span class="pill-value" id="weatherValue">Loading…</span>
-        </div>
-        <a class="pill danger" href="tel:911">Emergency: <strong>911</strong></a>
+    <div class="status" role="status" aria-live="polite">
+      <div class="pill" id="weatherPill">
+        <span class="dot"></span>
+        <span class="label">Philadelphia</span>
+        <span class="value" id="weatherValue">Loading weather…</span>
       </div>
-    </header>
+      <a class="pill emergency" href="tel:911">Emergency: 911</a>
+    </div>
+  </header>
 
-    <main class="wrap">
-      <section class="card">
-        <div class="card-top">
-          <div>
-            <div class="title">Chat</div>
-            <div class="subtitle">Ask anything Philly-related. I’ll keep it practical and clear.</div>
-          </div>
-          <button class="btn ghost" id="clearBtn" type="button">Clear</button>
-        </div>
-
-        <div class="messages" id="messages" role="log" aria-live="polite"></div>
-
-        <form class="composer" id="composer">
-          <textarea
-            id="input"
-            class="input"
-            rows="1"
-            placeholder="Type here… (Enter sends, Shift+Enter for new line)"
-            autocomplete="off"
-          ></textarea>
-          <button class="btn primary" id="sendBtn" type="submit">Send</button>
-        </form>
-      </section>
-
-      <aside class="side">
-        <div class="side-card">
-          <div class="side-title">Quick prompts</div>
-          <div class="chips" id="chips">
-            <button class="chip" type="button" data-q="How do I report a pothole in Philadelphia?">Pothole</button>
-            <button class="chip" type="button" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
-            <button class="chip" type="button" data-q="How do I contact 311 in Philly and what details should I include?">Contact 311</button>
-            <button class="chip" type="button" data-q="What are the parking basics I should know in Philadelphia?">Parking basics</button>
-            <button class="chip" type="button" data-q="How do I plan a SEPTA trip and what apps should I use?">SEPTA</button>
+  <main class="wrap">
+    <section class="card">
+      <div class="cardHead">
+        <div>
+          <div class="cardTitle">Chat</div>
+          <div class="cardSub">
+            Tell me your vibe, time window, and where you’re staying. I’ll plan it with clear steps.
           </div>
         </div>
+        <button class="ghost" id="clearBtn" type="button">Clear</button>
+      </div>
 
-        <div class="side-card">
-          <div class="side-title">Notes</div>
-          <ul class="notes">
-            <li>Not affiliated with the City of Philadelphia</li>
-            <li>Do not share sensitive personal info</li>
-            <li>Emergencies: call 911</li>
-          </ul>
-          <div class="meta" id="weatherMeta"></div>
-        </div>
-      </aside>
-    </main>
+      <div class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></div>
 
-    <script src="/app.js"></script>
-  </body>
+      <form class="composer" id="chatForm" autocomplete="off">
+        <textarea
+          id="input"
+          rows="1"
+          placeholder="Try: ‘1 day in Philly, love history + good food, staying in Center City.’"
+          aria-label="Type your message"
+        ></textarea>
+        <button class="send" id="sendBtn" type="submit">Send</button>
+      </form>
+
+      <div class="hint">
+        Tip: add your neighborhood (Center City, Fishtown, Old City) and a budget (cheap / mid / splurge).
+      </div>
+    </section>
+
+    <aside class="card side">
+      <div class="sideTitle">Quick prompts</div>
+      <div class="chips" id="chips">
+        <button class="chip" type="button" data-prompt="Plan a perfect first-time day in Philly (walkable, iconic stops, good food).">First time day plan</button>
+        <button class="chip" type="button" data-prompt="Best food crawl in Philly with 4 stops (include what to order).">Food crawl</button>
+        <button class="chip" type="button" data-prompt="What should I do in Old City for 3 hours?">Old City (3 hours)</button>
+        <button class="chip" type="button" data-prompt="Top museums + how to group them efficiently in half a day.">Museums (half day)</button>
+        <button class="chip" type="button" data-prompt="Rainy day plan in Philly that still feels fun.">Rainy day plan</button>
+        <button class="chip" type="button" data-prompt="SEPTA basics: how to pay, what to avoid, and how to plan a route.">SEPTA basics</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="sideTitle">Notes</div>
+      <ul class="notes">
+        <li>Not affiliated with the City of Philadelphia</li>
+        <li>Don’t share sensitive personal information</li>
+        <li>For emergencies, call 911</li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <div class="footInner">
+      <span>Philly GPT</span>
+      <span class="sep">•</span>
+      <span>Tour guide mode</span>
+    </div>
+  </footer>
+
+  <script src="/chat.js" defer></script>
+</body>
 </html>
