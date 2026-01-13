@@ -34,10 +34,38 @@ function setBusy(on) {
   input.disabled = on;
 }
 
+// Removes common Markdown formatting so output looks clean
+function cleanReply(text) {
+  let t = String(text || "");
+
+  // Convert markdown links: [text](url) -> text (url)
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$1 ($2)");
+
+  // Remove headings: "# Title" -> "Title"
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+
+  // Remove bullet markers at line starts: "- ", "* ", "+ "
+  t = t.replace(/^\s*[-*+]\s+/gm, "");
+
+  // Remove blockquote markers ">"
+  t = t.replace(/^\s*>\s?/gm, "");
+
+  // Remove emphasis/code markers: **bold**, *italics*, `code`, ___
+  t = t.replace(/[*_`]/g, "");
+
+  // Remove horizontal rule lines like "---"
+  t = t.replace(/^\s*-{3,}\s*$/gm, "");
+
+  // Tighten excessive blank lines
+  t = t.replace(/\n{3,}/g, "\n\n");
+
+  return t.trim();
+}
+
 function intro() {
   add(
     "assistant",
-    "Yo—welcome to Philly. Tell me what’s up (and your neighborhood/cross-streets if you’ve got them) and I’ll point you to the right next steps—311, parking rules, SEPTA, or the exact city page to use. If someone’s in danger, call 911."
+    "Welcome to Philly. Tell me what’s going on (share your neighborhood or cross-streets if you can), and I’ll guide you to the right next steps—311 reports, parking basics, SEPTA planning, and official links. If someone is in immediate danger, call 911."
   );
 }
 
@@ -72,7 +100,10 @@ async function send() {
       return;
     }
 
-    bubble.textContent = (data.reply || "").trim() || "No response came back. Try again.";
+    const raw = (data.reply || "").trim();
+    const cleaned = cleanReply(raw);
+
+    bubble.textContent = cleaned || "No response came back. Try again.";
     history.push({ role: "assistant", content: bubble.textContent });
   } catch (e) {
     bubble.textContent = "Error: " + (e?.message || "Network error");
