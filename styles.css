@@ -1,4 +1,4 @@
-/* /styles.css */
+/* /styles.css  (REPLACE ENTIRE FILE) */
 :root{
   --bg0:#06111c;
   --bg1:#071a28;
@@ -36,6 +36,7 @@ body{
   filter:blur(12px);
 }
 
+/* ---------- Header ---------- */
 .header{
   max-width:1050px;
   margin:0 auto;
@@ -46,7 +47,12 @@ body{
   gap:12px;
 }
 
-.brand{display:flex;align-items:center;gap:12px;min-width:220px}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0; /* important so it can shrink on small screens */
+}
 .logo{
   width:44px;height:44px;border-radius:14px;
   display:grid;place-items:center;
@@ -54,22 +60,32 @@ body{
   background:linear-gradient(135deg, rgba(79,209,197,.95), rgba(96,165,250,.95));
   color:rgba(10,15,25,.95);
   box-shadow:0 14px 36px rgba(0,0,0,.25);
+  flex:0 0 auto;
 }
-.brand-text .name{font-size:18px;font-weight:900;line-height:1.1}
-.brand-text .tag{font-size:12.5px;color:var(--muted2);margin-top:2px}
+.brand-text{min-width:0}
+.brand-text .name{font-size:18px;font-weight:900;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-text .tag{font-size:12.5px;color:var(--muted2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .header-right{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex:0 0 auto;
 }
-
 .pill{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border-radius:999px;
+  display:inline-flex; /* prevents full-width “bars” when layout gets tight */
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:999px;
   background:rgba(255,255,255,.05);
   border:1px solid rgba(255,255,255,.10);
-  text-decoration:none;color:var(--text);
+  text-decoration:none;
+  color:var(--text);
   backdrop-filter:blur(10px);
   box-shadow:0 10px 28px rgba(0,0,0,.18);
+  white-space:nowrap;
+  flex:0 0 auto;
 }
 .pill .dot{
   width:9px;height:9px;border-radius:999px;background:var(--accent);
@@ -83,12 +99,13 @@ body{
 }
 .pill.danger strong{font-weight:900}
 
+/* ---------- Main layout ---------- */
 .wrap{
   max-width:1050px;
   margin:0 auto;
   padding:10px 16px 24px;
   display:grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: minmax(0,1fr) 320px;
   gap:14px;
 }
 
@@ -128,6 +145,7 @@ body{
   display:grid;place-items:center;font-weight:900;
   background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.10);
+  flex:0 0 auto;
 }
 .bubble{
   max-width:760px;
@@ -138,6 +156,7 @@ body{
   line-height:1.35;
   font-size:14px;
   white-space:pre-wrap;
+  overflow-wrap:anywhere;
 }
 .row.user{justify-content:flex-end}
 .row.user .avatar{display:none}
@@ -189,6 +208,7 @@ body{
 }
 .btn.primary:hover{filter:brightness(1.05)}
 
+/* ---------- Sidebar ---------- */
 .side{display:flex;flex-direction:column;gap:14px}
 .side-card{
   background:var(--card);
@@ -201,27 +221,4 @@ body{
 .side-title{font-weight:900;font-size:14px}
 .chips{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px}
 .chip{
-  border-radius:999px;
-  padding:9px 12px;
-  border:1px solid rgba(255,255,255,.14);
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  cursor:pointer;
-  font-weight:900;
-  font-size:12.5px;
-}
-.chip:hover{background:rgba(255,255,255,.09)}
-.notes{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.35}
-.meta{margin-top:10px;font-size:12px;color:var(--muted2)}
-
-@media (max-width: 900px){
-  .wrap{grid-template-columns:1fr}
-  .side{order:2}
-  .card{min-height:70vh}
-}
-@media (max-width: 520px){
-  .header{padding:16px 14px 10px}
-  .wrap{padding:10px 14px 22px;gap:12px}
-  .brand-text .tag{display:none}
-  .bubble{font-size:13.5px}
-}
+  border-ra
