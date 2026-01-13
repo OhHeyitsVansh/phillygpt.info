@@ -1,239 +1,251 @@
 // /chat.js
-const $ = (id) => document.getElementById(id);
+(() => {
+  const $ = (id) => document.getElementById(id);
 
-const messagesEl = $("messages");
-const formEl = $("chatForm");
-const inputEl = $("input");
-const sendBtn = $("sendBtn");
-const clearBtn = $("clearBtn");
-const weatherValueEl = $("weatherValue");
-const chipsEl = $("chips");
+  const messagesEl = $("messages");
+  const inputEl = $("input");
+  const sendBtn = $("sendBtn");
+  const clearBtn = $("clearBtn");
+  const yearEl = $("year");
+  const weatherValue = $("weatherValue");
+  const weatherMini = $("weatherMini");
+  const quickPrompts = $("quickPrompts");
+  const quickCard = $("quickCard");
+  const notesCard = $("notesCard");
 
-const STORAGE_KEY = "phillygpt_tourguide_chat_v1";
-const WEATHER_TTL_MS = 10 * 60 * 1000;
-const WEATHER_CACHE_KEY = "phillygpt_weather_cache_v1";
+  yearEl.textContent = new Date().getFullYear();
 
-function normalizeOutput(text) {
-  let t = String(text ?? "");
-
-  // Remove markdown clutter
-  t = t.replace(/```[\s\S]*?```/g, (block) =>
-    block.replace(/```[\w-]*\n?/g, "").replace(/```/g, "").trim()
-  );
-  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
-  t = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1");
-  t = t.replace(/__(.*?)__/g, "$1").replace(/_(.*?)_/g, "$1");
-  t = t.replace(/^\s*[-*•]\s+/gm, "");
-  t = t.replace(/^\s*\d+\.\s+/gm, "");
-  t = t.replace(/[•#]/g, "");
-  t = t.replace(/\n{3,}/g, "\n\n").trim();
-
-  return t;
-}
-
-function scrollToBottom() {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function addMessage(role, text) {
-  const msg = document.createElement("div");
-  msg.className = `msg ${role === "user" ? "me" : "bot"}`;
-
-  const avatar = document.createElement("div");
-  avatar.className = "avatar";
-  avatar.textContent = role === "user" ? "You" : "PG";
-
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  bubble.textContent = text;
-
-  msg.appendChild(avatar);
-  msg.appendChild(bubble);
-  messagesEl.appendChild(msg);
-  scrollToBottom();
-}
-
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveChat(history) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch {}
-}
-
-function seedWelcome() {
-  addMessage(
-    "assistant",
-    "Welcome to Philly.\n\nTell me what you’re into (food, history, museums, nightlife), how much time you have, and where you’re starting from. I’ll give you a simple plan with the best next stops."
-  );
-}
-
-function autoResize(el) {
-  el.style.height = "auto";
-  el.style.height = Math.min(el.scrollHeight, 140) + "px";
-}
-
-function buildSystem() {
-  return {
-    role: "system",
-    content:
-      "You are Philly GPT, a friendly tour guide for Philadelphia. Output must be plain text only with no markdown, no hashtags, no asterisks, and no bullet symbols. Keep answers short and clear. Give 3 to 6 great options with neighborhood context and practical tips. Offer a simple mini itinerary. Ask one short follow-up question only if needed.",
+  // Collapse bottom panels on small screens by default (fixes iPhone layout)
+  const setPanelsByWidth = () => {
+    const mobile = window.innerWidth <= 760;
+    if (mobile) {
+      quickCard.removeAttribute("open");
+      notesCard.removeAttribute("open");
+    } else {
+      quickCard.setAttribute("open", "open");
+      notesCard.setAttribute("open", "open");
+    }
   };
-}
+  setPanelsByWidth();
+  window.addEventListener("resize", setPanelsByWidth);
 
-async function sendToAPI(history) {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ messages: history }),
+  // Local storage chat history
+  const STORAGE_KEY = "phillygpt_chat_v1";
+  let history = [];
+
+  function saveHistory() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-30)));
+  }
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      history = raw ? JSON.parse(raw) : [];
+    } catch {
+      history = [];
+    }
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function stripMarkdown(text) {
+    if (!text) return "";
+    let t = String(text);
+
+    // Remove common markdown tokens
+    t = t.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "")); // keep code content, drop fences
+    t = t.replace(/`([^`]+)`/g, "$1");
+    t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");      // headings
+    t = t.replace(/^\s{0,3}>\s?/gm, "");           // blockquotes
+    t = t.replace(/\*\*(.*?)\*\*/g, "$1");         // bold
+    t = t.replace(/\*(.*?)\*/g, "$1");             // italics
+    t = t.replace(/__([^_]+)__/g, "$1");
+    t = t.replace(/_([^_]+)_/g, "$1");
+
+    // Links: [text](url) -> text
+    t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
+
+    // List markers: "- " "* " "1. " -> "• "
+    t = t.replace(/^\s*[-*]\s+/gm, "• ");
+    t = t.replace(/^\s*\d+\.\s+/gm, "• ");
+
+    // Remove stray leading markdown chars on lines
+    t = t.replace(/^\s*[*#]+\s*/gm, "");
+
+    // Clean up
+    t = t.replace(/\n{3,}/g, "\n\n").trim();
+
+    return t;
+  }
+
+  function addMessage(role, text) {
+    const row = document.createElement("div");
+    row.className = "msgRow" + (role === "user" ? " user" : "");
+
+    if (role !== "user") {
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = "PG";
+      row.appendChild(av);
+    }
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble" + (role === "user" ? " user" : "");
+    bubble.textContent = stripMarkdown(text);
+    row.appendChild(bubble);
+
+    messagesEl.appendChild(row);
+    scrollToBottom();
+  }
+
+  function autosize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }
+
+  inputEl.addEventListener("input", () => autosize(inputEl));
+
+  // Send on Enter (Shift+Enter for new line)
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-  return data;
-}
 
-async function handleSend(userText) {
-  const text = userText.trim();
-  if (!text) return;
+  sendBtn.addEventListener("click", send);
+  clearBtn.addEventListener("click", () => {
+    history = [];
+    saveHistory();
+    messagesEl.innerHTML = "";
+    seedWelcome();
+  });
 
-  addMessage("user", text);
-
-  const saved = loadSaved();
-  const history = [buildSystem(), ...saved, { role: "user", content: text }];
-
-  sendBtn.disabled = true;
-  addMessage("assistant", "One sec — planning that for you…");
-
-  try {
-    const data = await sendToAPI(history);
-
-    // remove placeholder
-    messagesEl.removeChild(messagesEl.lastElementChild);
-
-    const reply = normalizeOutput(data?.reply || "");
-    addMessage("assistant", reply || "No response returned. Please try again.");
-
-    const newSaved = [...saved, { role: "user", content: text }, { role: "assistant", content: reply }].slice(-24);
-    saveChat(newSaved);
-  } catch (e) {
-    messagesEl.removeChild(messagesEl.lastElementChild);
-    addMessage("assistant", `Sorry — ${e.message}`);
-  } finally {
-    sendBtn.disabled = false;
+  quickPrompts.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-prompt]");
+    if (!btn) return;
+    inputEl.value = btn.getAttribute("data-prompt") || "";
+    autosize(inputEl);
     inputEl.focus();
-  }
-}
+  });
 
-// Weather (Philadelphia) via Open-Meteo (no key)
-function weatherCodeToText(code) {
-  const c = Number(code);
-  if (c === 0) return "Clear";
-  if (c === 1 || c === 2 || c === 3) return "Cloudy";
-  if (c === 45 || c === 48) return "Fog";
-  if (c === 51 || c === 53 || c === 55 || c === 56 || c === 57) return "Drizzle";
-  if (c === 61 || c === 63 || c === 65 || c === 66 || c === 67) return "Rain";
-  if (c === 71 || c === 73 || c === 75 || c === 77) return "Snow";
-  if (c === 80 || c === 81 || c === 82) return "Showers";
-  if (c === 95 || c === 96 || c === 99) return "Thunderstorms";
-  return "Conditions";
-}
-
-function loadWeatherCache() {
-  try {
-    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
-    if (!raw) return null;
-    const c = JSON.parse(raw);
-    if (!c?.ts || !c?.value) return null;
-    if (Date.now() - c.ts > WEATHER_TTL_MS) return null;
-    return c.value;
-  } catch {
-    return null;
-  }
-}
-
-function saveWeatherCache(value) {
-  try {
-    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), value }));
-  } catch {}
-}
-
-async function loadWeather() {
-  const cached = loadWeatherCache();
-  if (cached) {
-    weatherValueEl.textContent = cached;
-    return;
+  function seedWelcome() {
+    addMessage(
+      "assistant",
+      "Welcome to Philly.\n\nTell me:\n• How much time you’ve got (1–3 hours, half day, full day)\n• Your vibe (history, art, food, nightlife, chill)\n• Budget (cheap / mid / splurge)\n• Where you’re starting (or a neighborhood)\n\nI’ll give you a clean, step-by-step plan with stops, timing, and how to get around."
+    );
   }
 
-  try {
-    const url =
-      "https://api.open-meteo.com/v1/forecast?latitude=39.9526&longitude=-75.1652&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FNew_York";
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
+  async function send() {
+    const msg = inputEl.value.trim();
+    if (!msg) return;
 
-    const temp = Math.round(data?.current?.temperature_2m);
-    const wind = Math.round(data?.current?.wind_speed_10m);
-    const code = data?.current?.weather_code;
-    const desc = weatherCodeToText(code);
+    inputEl.value = "";
+    autosize(inputEl);
+    addMessage("user", msg);
 
-    const value = `${temp}°F · ${desc} · Wind ${wind} mph`;
-    weatherValueEl.textContent = value;
-    saveWeatherCache(value);
-  } catch {
-    weatherValueEl.textContent = "Weather unavailable";
-  }
-}
+    history.push({ role: "user", content: msg });
+    saveHistory();
 
-// Events
-clearBtn.addEventListener("click", () => {
-  messagesEl.innerHTML = "";
-  saveChat([]);
-  seedWelcome();
-});
+    // Loading bubble
+    const loadingRow = document.createElement("div");
+    loadingRow.className = "msgRow";
+    loadingRow.innerHTML = `<div class="avatar">PG</div><div class="bubble">Thinking…</div>`;
+    messagesEl.appendChild(loadingRow);
+    scrollToBottom();
 
-inputEl.addEventListener("input", () => autoResize(inputEl));
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, history: history.slice(-12) }),
+      });
 
-formEl.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const text = inputEl.value;
-  inputEl.value = "";
-  autoResize(inputEl);
-  handleSend(text);
-});
+      const data = await res.json();
+      loadingRow.remove();
 
-inputEl.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    formEl.requestSubmit();
-  }
-});
+      if (!res.ok) {
+        addMessage("assistant", data?.error || "Sorry — something went wrong.");
+        return;
+      }
 
-chipsEl?.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-prompt]");
-  if (!btn) return;
-  inputEl.value = btn.getAttribute("data-prompt") || "";
-  autoResize(inputEl);
-  inputEl.focus();
-});
+      const reply = stripMarkdown(data.reply || "");
+      addMessage("assistant", reply);
 
-// Boot
-(function init() {
-  const saved = loadSaved();
-
-  messagesEl.innerHTML = "";
-  seedWelcome();
-
-  for (const m of saved) {
-    if (m?.role === "user") addMessage("user", m.content);
-    if (m?.role === "assistant") addMessage("assistant", normalizeOutput(m.content));
+      history.push({ role: "assistant", content: reply });
+      saveHistory();
+    } catch (err) {
+      loadingRow.remove();
+      addMessage("assistant", "Network error. Please try again.");
+    }
   }
 
-  autoResize(inputEl);
+  // Restore history
+  loadHistory();
+  if (history.length === 0) {
+    seedWelcome();
+  } else {
+    // Re-render past messages (simple)
+    history.forEach((m) => addMessage(m.role === "assistant" ? "assistant" : "user", m.content));
+  }
+
+  // Weather (no API key): Open-Meteo
+  const PHILLY = { lat: 39.9526, lon: -75.1652, tz: "America/New_York" };
+
+  const weatherCodeToText = (code) => {
+    // Open-Meteo weather codes (simplified)
+    const map = {
+      0: "Clear",
+      1: "Mostly clear",
+      2: "Partly cloudy",
+      3: "Cloudy",
+      45: "Fog",
+      48: "Rime fog",
+      51: "Light drizzle",
+      53: "Drizzle",
+      55: "Heavy drizzle",
+      61: "Light rain",
+      63: "Rain",
+      65: "Heavy rain",
+      71: "Light snow",
+      73: "Snow",
+      75: "Heavy snow",
+      80: "Light showers",
+      81: "Showers",
+      82: "Heavy showers",
+      95: "Thunderstorm",
+      96: "Thunderstorm + hail",
+      99: "Thunderstorm + heavy hail",
+    };
+    return map[code] || "Weather";
+  };
+
+  async function loadWeather() {
+    try {
+      const url =
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${PHILLY.lat}&longitude=${PHILLY.lon}` +
+        `&current=temperature_2m,weather_code,wind_speed_10m` +
+        `&temperature_unit=fahrenheit&wind_speed_unit=mph` +
+        `&timezone=${encodeURIComponent(PHILLY.tz)}`;
+
+      const r = await fetch(url, { cache: "no-store" });
+      const j = await r.json();
+
+      const temp = Math.round(j?.current?.temperature_2m);
+      const code = j?.current?.weather_code;
+      const wind = Math.round(j?.current?.wind_speed_10m);
+
+      const label = `${temp}°F · ${weatherCodeToText(code)} · Wind ${wind} mph`;
+      weatherValue.textContent = label;
+      weatherMini.textContent = `Weather: ${label}`;
+    } catch {
+      weatherValue.textContent = "Weather unavailable";
+      weatherMini.textContent = "";
+    }
+  }
+
   loadWeather();
-  setInterval(loadWeather, WEATHER_TTL_MS);
+  setInterval(loadWeather, 10 * 60 * 1000); // refresh every 10 min
 })();
