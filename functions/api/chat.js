@@ -1,70 +1,81 @@
-export async function onRequestPost(context) {
-  const { request, env } = context;
-
+export async function onRequestPost({ request, env }) {
   try {
+    const apiKey = env.OPENAI_API_KEY;
+    if (!apiKey) return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages (Production)." }, 500);
+
     const body = await request.json().catch(() => ({}));
-    const message = body?.message;
+    const message = (body?.message || "").trim();
+    const history = Array.isArray(body?.history) ? body.history : [];
 
-    if (!message || typeof message !== "string") {
-      return json({ error: "Missing 'message' (string)." }, 400);
-    }
+    if (!message) return json({ error: "Missing message" }, 400);
 
-    if (!env.OPENAI_API_KEY) {
-      return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages Secrets (Production)." }, 500);
-    }
+    const system =
+      "You are Philly GPT, a practical civic helper for Philadelphia. " +
+      "Give step-by-step next actions and what info to gather. " +
+      "Suggest official sources (City of Philadelphia, 311, SEPTA) when relevant. " +
+      "Not affiliated with any government. If it’s an emergency, tell them to call 911.";
 
-    const instructions = `
-You are Philly GPT, a civic helper for Philadelphia.
-Give practical steps and what to do next.
-Point to official sources when relevant. If time-sensitive, tell them to verify.
-Do not request sensitive personal info. If emergency or danger: call 911.
-`.trim();
+    const trimmed = history
+      .filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .slice(-12);
+
+    const input = [
+      { role: "system", content: system },
+      ...trimmed,
+      { role: "user", content: message },
+    ];
 
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        instructions,
-        input: message,
-        max_output_tokens: 450,
-        store: false
-      })
+        model: env.OPENAI_MODEL || "gpt-4.1-mini",
+        input,
+        temperature: 0.4,
+        max_output_tokens: 500,
+      }),
     });
 
-    const data = await r.json();
+    const raw = await r.text();
+    let data = null;
+    try { data = JSON.parse(raw); } catch {}
+
     if (!r.ok) {
-      return json({ error: data?.error?.message || "OpenAI API error" }, 502);
+      const err = data?.error?.message || `OpenAI error (${r.status})`;
+      return json({ error: err }, 502);
     }
 
-    return json({ text: extractText(data) });
-  } catch (err) {
-    return json({ error: err?.message || "Server error" }, 500);
+    const reply = extractText(data) || "No response text returned.";
+    return json({ reply }, 200);
+  } catch (e) {
+    return json({ error: e?.message || "Server error" }, 500);
   }
 }
 
-function extractText(res) {
-  const out = res?.output || [];
-  const parts = [];
-
+function extractText(resp) {
+  if (typeof resp?.output_text === "string" && resp.output_text.trim()) return resp.output_text.trim();
+  const out = resp?.output;
+  if (!Array.isArray(out)) return "";
+  let t = "";
   for (const item of out) {
-    if (item?.type === "message" && item?.role === "assistant") {
-      for (const c of item?.content || []) {
-        if (c?.type === "output_text" && typeof c?.text === "string") {
-          parts.push(c.text);
-        }
-      }
+    const c = item?.content;
+    if (!Array.isArray(c)) continue;
+    for (const part of c) {
+      if (part?.type === "output_text" && typeof part?.text === "string") t += part.text;
     }
   }
-  return parts.join("\n").trim() || "Sorry — I couldn’t generate a response.";
+  return t.trim();
 }
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   });
 }
