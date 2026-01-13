@@ -1,387 +1,94 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Philly GPT</title>
-  <meta name="description" content="Philly GPT — civic help for Philadelphia (311, parking basics, SEPTA tips)." />
-  <style>
-    :root{
-      --bg:#0b1220;
-      --panel: rgba(255,255,255,.06);
-      --panel2: rgba(255,255,255,.04);
-      --line: rgba(255,255,255,.12);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.68);
-      --muted2: rgba(255,255,255,.56);
-      --accent: #60a5fa;
-      --good: #34d399;
-      --warn: #fbbf24;
-      --bad: #fb7185;
-      --radius: 18px;
-      --shadow: 0 20px 60px rgba(0,0,0,.35);
-    }
-
-    *{ box-sizing:border-box; }
-    html, body{ height:100%; }
-    body{
-      margin:0;
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:
-        radial-gradient(1100px 650px at 12% 10%, rgba(96,165,250,.22), transparent 55%),
-        radial-gradient(900px 550px at 85% 18%, rgba(52,211,153,.14), transparent 58%),
-        radial-gradient(800px 500px at 40% 85%, rgba(250,204,21,.10), transparent 60%),
-        var(--bg);
-      padding: 22px 14px 40px;
-    }
-
-    a{ color: inherit; }
-    .wrap{ max-width: 1040px; margin: 0 auto; }
-
-    /* Header */
-    .header{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap: 14px;
-      margin-bottom: 14px;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap: 12px;
-      min-width: 260px;
-    }
-
-    .logo{
-      width:44px;
-      height:44px;
-      border-radius: 16px;
-      background: linear-gradient(140deg, rgba(96,165,250,.95), rgba(52,211,153,.72));
-      display:grid;
-      place-items:center;
-      font-weight: 900;
-      letter-spacing: .3px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-      border: 1px solid rgba(255,255,255,.18);
-    }
-
-    .brand h1{
-      margin:0;
-      font-size: 18px;
-      line-height: 1.1;
-    }
-    .brand p{
-      margin: 3px 0 0;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .bannerRow{
-      display:flex;
-      gap: 10px;
-      align-items:center;
-      justify-content:flex-end;
-      flex-wrap: wrap;
-    }
-
-    .pill{
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.045);
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-      backdrop-filter: blur(10px);
-    }
-
-    .pill b{ color: var(--text); font-weight: 800; }
-
-    .dot{
-      width:8px;
-      height:8px;
-      border-radius: 50%;
-      background: rgba(255,255,255,.45);
-      box-shadow: 0 0 0 4px rgba(255,255,255,.06);
-    }
-
-    /* Layout */
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 340px;
-      gap: 12px;
-    }
-    @media (max-width: 960px){
-      .grid{ grid-template-columns: 1fr; }
-      .bannerRow{ justify-content:flex-start; }
-    }
-
-    .panel{
-      border: 1px solid var(--line);
-      background: var(--panel);
-      border-radius: var(--radius);
-      overflow:hidden;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
-    }
-
-    .panelHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 12px;
-      padding: 12px 12px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
-    }
-
-    .panelHead .title{
-      display:flex;
-      flex-direction:column;
-      gap: 2px;
-    }
-
-    .panelHead .title b{
-      font-size: 13px;
-      letter-spacing: .2px;
-    }
-    .panelHead .title span{
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .btn{
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 9px 12px;
-      cursor:pointer;
-      font-weight: 800;
-      font-size: 13px;
-    }
-    .btn:hover{ background: rgba(255,255,255,.09); }
-    .btn:disabled{ opacity:.6; cursor:not-allowed; }
-    .btn.primary{
-      background: rgba(96,165,250,.22);
-      border-color: rgba(96,165,250,.35);
-    }
-    .btn.primary:hover{ background: rgba(96,165,250,.30); }
-
-    /* Chat */
-    .chat{
-      height: 560px;
-      overflow:auto;
-      padding: 14px;
-      scroll-behavior:smooth;
-    }
-
-    .msg{
-      display:flex;
-      gap: 10px;
-      align-items:flex-start;
-      margin: 10px 0;
-    }
-
-    .avatar{
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.05);
-      display:grid;
-      place-items:center;
-      font-weight: 900;
-      font-size: 13px;
-      flex: 0 0 auto;
-    }
-
-    .bubble{
-      max-width: 78%;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.05);
-      padding: 10px 12px;
-      border-radius: 14px;
-      white-space: pre-wrap;
-      line-height: 1.35;
-      font-size: 14px;
-    }
-
-    .user{
-      justify-content:flex-end;
-    }
-    .user .avatar{ display:none; }
-    .user .bubble{
-      max-width: 82%;
-      background: rgba(96,165,250,.18);
-      border-color: rgba(96,165,250,.30);
-    }
-
-    .composer{
-      display:flex;
-      gap: 10px;
-      align-items:flex-end;
-      padding: 12px;
-      border-top: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
-    }
-
-    textarea{
-      width:100%;
-      min-height: 46px;
-      max-height: 140px;
-      resize:none;
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.15);
-      color: var(--text);
-      outline:none;
-      font-size: 14px;
-    }
-    textarea::placeholder{ color: rgba(255,255,255,.55); }
-
-    /* Right side */
-    .side{
-      padding: 14px;
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-    }
-
-    .sectionTitle{
-      margin: 0 0 8px;
-      font-size: 14px;
-      letter-spacing: .2px;
-    }
-
-    .helpText{
-      margin: 0 0 12px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.35;
-    }
-
-    .chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap: 8px;
-    }
-
-    .chip{
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.05);
-      color: var(--text);
-      border-radius: 999px;
-      padding: 8px 10px;
-      cursor:pointer;
-      font-size: 13px;
-    }
-    .chip:hover{ background: rgba(255,255,255,.09); }
-
-    .hr{ height:1px; background: var(--line); margin: 14px 0; }
-
-    .noteList{
-      margin: 0;
-      padding-left: 16px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.35;
-    }
-
-    .tiny{
-      color: var(--muted2);
-      font-size: 12px;
-      line-height: 1.35;
-      margin-top: 10px;
-    }
-
-    /* Typing indicator */
-    .typing{ display:inline-flex; gap:6px; align-items:center; }
-    .tDot{ width:6px; height:6px; border-radius:50%; background: rgba(255,255,255,.55); animation:bounce 1.2s infinite; }
-    .tDot:nth-child(2){ animation-delay:.15s; }
-    .tDot:nth-child(3){ animation-delay:.30s; }
-    @keyframes bounce{ 0%,80%,100%{ transform:translateY(0); opacity:.55 } 40%{ transform:translateY(-4px); opacity:1 } }
-  </style>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 
 <body>
-  <div class="wrap">
-    <div class="header">
-      <div class="brand">
-        <div class="logo">PG</div>
-        <div>
-          <h1>Philly GPT</h1>
-          <p>Civic help for Philadelphia (311, parking basics, SEPTA tips)</p>
-        </div>
-      </div>
+  <div class="bg"></div>
 
-      <div class="bannerRow">
-        <div class="pill" title="Philadelphia local time">
-          <span class="dot"></span>
-          <span>Philly time:</span>
-          <b id="phillyTime">—</b>
-        </div>
-        <div class="pill" title="Live weather via Open-Meteo (no key)">
-          <span class="dot"></span>
-          <span>Weather:</span>
-          <b id="phillyWeather">Loading…</b>
-        </div>
-        <div class="pill">
-          For emergencies call <b>911</b>
-        </div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">PG</div>
+      <div class="brandText">
+        <div class="brandTitle">Philly GPT</div>
+        <div class="brandSubtitle">Civic help for Philadelphia (311, parking basics, SEPTA tips)</div>
       </div>
     </div>
 
-    <div class="grid">
-      <!-- Chat panel -->
-      <div class="panel">
-        <div class="panelHead">
-          <div class="title">
-            <b>Chat</b>
-            <span>Ask a Philly question. I’ll give practical steps and what to check next.</span>
-          </div>
-          <button class="btn" id="clear">Clear</button>
+    <div class="topbarRight">
+      <div class="pill" id="weatherPill" aria-live="polite">
+        Weather: <span class="muted">Loading…</span>
+      </div>
+      <div class="pill subtle">For emergencies call <b>911</b></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card chatCard">
+      <div class="cardHeader">
+        <div>
+          <div class="cardTitle">Chat</div>
+          <div class="cardSubtitle">Ask a Philly question. I’ll give practical steps and what to check next.</div>
         </div>
+        <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+      </div>
 
-        <div class="chat" id="chat"></div>
+      <div class="messages" id="messages" role="log" aria-live="polite"></div>
 
-        <div class="composer">
-          <textarea id="input" placeholder="Type here… (Enter sends, Shift+Enter for new line)"></textarea>
-          <button class="btn primary" id="send">Send</button>
+      <div class="composer">
+        <textarea
+          id="input"
+          class="input"
+          rows="2"
+          placeholder="Type here… (Enter to send, Shift+Enter for new line)"
+        ></textarea>
+        <button class="btn primary" id="sendBtn" type="button">Send</button>
+      </div>
+
+      <div class="hintRow">
+        <span class="hintDot"></span>
+        <span class="hintText">
+          Tip: Include your neighborhood or closest cross-streets for better guidance.
+        </span>
+      </div>
+    </section>
+
+    <aside class="card sideCard">
+      <div class="cardHeader">
+        <div>
+          <div class="cardTitle">Quick questions</div>
+          <div class="cardSubtitle">Tap one to fill the box.</div>
         </div>
       </div>
 
-      <!-- Side panel -->
-      <div class="panel side">
-        <h2 class="sectionTitle">Quick questions</h2>
-        <p class="helpText">Tap one to fill the box.</p>
+      <div class="chipGrid" id="chips">
+        <button class="chip" data-q="How do I report a pothole in Philly?">Report a pothole</button>
+        <button class="chip" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
+        <button class="chip" data-q="What’s the best way to contact 311 and what info should I include?">Contact 311</button>
+        <button class="chip" data-q="What are the basics of parking rules in Philadelphia?">Parking basics</button>
+        <button class="chip" data-q="How do I plan a SEPTA trip and check delays?">SEPTA planning</button>
+      </div>
 
-        <div class="chips">
-          <button class="chip" data-q="How do I report a pothole in Philly (311) and what details should I include?">Report a pothole</button>
-          <button class="chip" data-q="How do I report illegal dumping in Philly? What info and photos help?">Illegal dumping</button>
-          <button class="chip" data-q="How do I contact Philly 311 and what can they help with?">Contact 311</button>
-          <button class="chip" data-q="Give me general parking basics in Philadelphia (street signs, meters, PPA tips).">Parking basics</button>
-          <button class="chip" data-q="How do I plan a trip using SEPTA? What apps and steps should I use?">SEPTA planning</button>
-        </div>
+      <div class="divider"></div>
 
-        <div class="hr"></div>
-
-        <h2 class="sectionTitle">Notes</h2>
-        <ul class="noteList">
+      <div class="notes">
+        <div class="notesTitle">Notes</div>
+        <ul>
           <li>Not affiliated with the City of Philadelphia</li>
           <li>Don’t share sensitive personal info here</li>
           <li>For emergencies: 911</li>
         </ul>
-
-        <div class="tiny" id="weatherMeta"></div>
       </div>
-    </div>
-  </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <span class="muted">© Philly GPT · Built for community help</span>
+  </footer>
 
   <script src="./app.js"></script>
 </body>
