@@ -1,3 +1,4 @@
+<!-- /index.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -5,21 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#071217" />
   <title>Philly GPT</title>
+  <meta name="description" content="A simple Philadelphia tour guide chat." />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="bg"></div>
 
   <header class="top">
-    <div class="brand" role="banner">
+    <div class="brand">
       <div class="logo" aria-hidden="true">PG</div>
       <div class="brandText">
         <div class="title">Philly GPT</div>
-        <div class="subtitle">Your local tour guide for food, neighborhoods, museums, and day plans</div>
+        <div class="subtitle">Tour guide for food, neighborhoods, museums, and day plans</div>
       </div>
     </div>
 
-    <div class="status" role="status" aria-live="polite">
+    <div class="status" aria-live="polite">
       <div class="pill" id="weatherPill">
         <span class="dot"></span>
         <span class="label">Philadelphia</span>
@@ -34,38 +36,34 @@
       <div class="cardHead">
         <div>
           <div class="cardTitle">Chat</div>
-          <div class="cardSub">
-            Tell me your vibe, time window, and where you’re staying. I’ll plan it with clear steps.
-          </div>
+          <div class="cardSub">Tell me your vibe, time, budget, and where you’re starting. I’ll plan it.</div>
         </div>
         <button class="ghost" id="clearBtn" type="button">Clear</button>
       </div>
 
-      <div class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></div>
+      <div class="messages" id="messages" aria-live="polite"></div>
 
       <form class="composer" id="chatForm" autocomplete="off">
         <textarea
           id="input"
           rows="1"
-          placeholder="Try: ‘1 day in Philly, love history + good food, staying in Center City.’"
+          placeholder="Try: ‘1 day in Philly, love history + good food, starting in Center City.’"
           aria-label="Type your message"
         ></textarea>
         <button class="send" id="sendBtn" type="submit">Send</button>
       </form>
 
-      <div class="hint">
-        Tip: add your neighborhood (Center City, Fishtown, Old City) and a budget (cheap / mid / splurge).
-      </div>
+      <div class="hint">Tip: add a neighborhood (Old City, Fishtown, Rittenhouse) and budget (cheap / mid / splurge).</div>
     </section>
 
     <aside class="card side">
       <div class="sideTitle">Quick prompts</div>
       <div class="chips" id="chips">
-        <button class="chip" type="button" data-prompt="Plan a perfect first-time day in Philly (walkable, iconic stops, good food).">First time day plan</button>
-        <button class="chip" type="button" data-prompt="Best food crawl in Philly with 4 stops (include what to order).">Food crawl</button>
-        <button class="chip" type="button" data-prompt="What should I do in Old City for 3 hours?">Old City (3 hours)</button>
-        <button class="chip" type="button" data-prompt="Top museums + how to group them efficiently in half a day.">Museums (half day)</button>
-        <button class="chip" type="button" data-prompt="Rainy day plan in Philly that still feels fun.">Rainy day plan</button>
+        <button class="chip" type="button" data-prompt="Plan a perfect first-time day in Philly (walkable, iconic, good food).">First-time day plan</button>
+        <button class="chip" type="button" data-prompt="Make a food crawl with 4 stops and exactly what to order at each.">Food crawl</button>
+        <button class="chip" type="button" data-prompt="What should I do in Old City for 3 hours? Keep it simple.">Old City (3 hours)</button>
+        <button class="chip" type="button" data-prompt="Best museums and how to group them in half a day.">Museums (half day)</button>
+        <button class="chip" type="button" data-prompt="Give me a rainy-day plan in Philly that still feels fun.">Rainy day plan</button>
         <button class="chip" type="button" data-prompt="SEPTA basics: how to pay, what to avoid, and how to plan a route.">SEPTA basics</button>
       </div>
 
@@ -82,9 +80,7 @@
 
   <footer class="foot">
     <div class="footInner">
-      <span>Philly GPT</span>
-      <span class="sep">•</span>
-      <span>Tour guide mode</span>
+      <span>Philly GPT</span><span class="sep">•</span><span>Tour guide mode</span>
     </div>
   </footer>
 
