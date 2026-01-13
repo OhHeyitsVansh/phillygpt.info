@@ -1,118 +1,126 @@
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
   try {
-    const apiKey = env.OPENAI_API_KEY;
-    if (!apiKey) return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages Secrets (Production)." }, 500);
+    const { request, env } = context;
 
-    const body = await request.json().catch(() => ({}));
-    const message = (body?.message || "").trim();
-    const history = Array.isArray(body?.history) ? body.history : [];
+    const OPENAI_API_KEY = env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages environment variables (Production/Preview)." }, 500);
+    }
 
-    if (!message) return json({ error: "Missing message" }, 400);
+    const body = await request.json().catch(() => null);
+    const message = body?.message?.toString?.().trim?.();
 
-    const system =
-      "You are Philly GPT, a practical civic helper for Philadelphia. " +
-      "Give step-by-step next actions and what info to gather. " +
-      "Suggest official sources (City of Philadelphia, 311, SEPTA) when relevant. " +
-      "Not affiliated with any government. If it’s an emergency, tell them to call 911.\n\n" +
-      "OUTPUT RULES:\n" +
-      "Return plain text only. No Markdown. No bullets with symbols. No headings. " +
-      "If you need steps, use: Step 1:, Step 2:, etc.";
+    if (!message) {
+      return json({ error: "No message provided." }, 400);
+    }
 
-    const trimmed = history
-      .filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .slice(-12);
+    // System instruction: force clean plain-text, no markdown (#, *, etc.)
+    const systemText = [
+      "You are Philly GPT, a civic helper for Philadelphia.",
+      "Be friendly and practical, like a helpful local who knows how city services work.",
+      "Output rules (must follow):",
+      "- Return plain text only (no markdown).",
+      "- Do NOT use #, *, backticks, bullets like '-' or '•'.",
+      "- If you provide steps, format as 'Step 1:', 'Step 2:' etc.",
+      "- Keep it concise, clear, and actionable.",
+      "- Encourage users to share neighborhood or nearest cross-streets if relevant.",
+      "- If it sounds like an emergency, instruct to call 911.",
+    ].join("\n");
 
-    const input = [
-      { role: "system", content: system },
-      ...trimmed,
-      { role: "user", content: message },
-    ];
+    const payload = {
+      model: "gpt-4.1-mini",
+      input: [
+        {
+          role: "system",
+          content: [{ type: "input_text", text: systemText }]
+        },
+        {
+          role: "user",
+          content: [{ type: "input_text", text: message }]
+        }
+      ],
+      temperature: 0.4
+    };
 
-    const r = await fetch("https://api.openai.com/v1/responses", {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: env.OPENAI_MODEL || "gpt-4.1-mini",
-        input,
-        temperature: 0.4,
-        max_output_tokens: 600,
-      }),
+      body: JSON.stringify(payload)
     });
 
-    const raw = await r.text();
-    let data = null;
-    try { data = JSON.parse(raw); } catch {}
-
-    if (!r.ok) {
-      const err = data?.error?.message || `OpenAI error (${r.status})`;
-      return json({ error: err }, 502);
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const msg = data?.error?.message || "OpenAI request failed.";
+      return json({ error: msg }, 500);
     }
 
-    let reply = extractText(data) || "No response text returned.";
-    reply = stripMarkdown(reply);
+    const reply = extractText(data) || "Sorry — I couldn’t generate a response.";
 
-    return json({ reply }, 200);
-  } catch (e) {
-    return json({ error: e?.message || "Server error" }, 500);
+    // Final safety cleanup to remove markdown-ish symbols anyway
+    const cleaned = stripMarkdownLike(reply);
+
+    return json({ reply: cleaned }, 200);
+  } catch (err) {
+    return json({ error: "Server error." }, 500);
   }
-}
-
-function extractText(resp) {
-  if (typeof resp?.output_text === "string" && resp.output_text.trim()) return resp.output_text.trim();
-  const out = resp?.output;
-  if (!Array.isArray(out)) return "";
-  let t = "";
-  for (const item of out) {
-    const c = item?.content;
-    if (!Array.isArray(c)) continue;
-    for (const part of c) {
-      if (part?.type === "output_text" && typeof part?.text === "string") t += part.text;
-    }
-  }
-  return t.trim();
-}
-
-// Strong server-side sanitizer (removes #, **, bullets, etc.)
-function stripMarkdown(text) {
-  let t = String(text || "");
-
-  // [text](url) -> text (url)
-  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$1 ($2)");
-
-  // Headings like ### Title
-  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
-
-  // Blockquotes
-  t = t.replace(/^\s*>\s?/gm, "");
-
-  // Bullets: -, *, +, •
-  t = t.replace(/^\s*([-*+]|•)\s+/gm, "");
-
-  // Bold/italics/code markers
-  t = t.replace(/\*\*(.*?)\*\*/g, "$1");
-  t = t.replace(/\*(.*?)\*/g, "$1");
-  t = t.replace(/_{1,3}([^_]+)_{1,3}/g, "$1");
-  t = t.replace(/`{1,3}([^`]+)`{1,3}/g, "$1");
-
-  // Horizontal rules
-  t = t.replace(/^\s*-{3,}\s*$/gm, "");
-
-  // Cleanup extra blank lines
-  t = t.replace(/\r/g, "");
-  t = t.replace(/\n{3,}/g, "\n\n");
-
-  return t.trim();
 }
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store"
+    }
   });
+}
+
+/**
+ * Responses API text extraction:
+ * We walk the output array and collect any output_text chunks.
+ */
+function extractText(resp) {
+  const out = resp?.output;
+  if (!Array.isArray(out)) return "";
+
+  let text = "";
+  for (const item of out) {
+    const content = item?.content;
+    if (!Array.isArray(content)) continue;
+
+    for (const c of content) {
+      if (c?.type === "output_text" && typeof c.text === "string") {
+        text += c.text;
+      }
+    }
+  }
+  return text.trim();
+}
+
+function stripMarkdownLike(text) {
+  let t = String(text ?? "");
+
+  // Remove headings / emphasis / code markers / bullets
+  t = t.replace(/`+/g, "");
+  t = t.replace(/\*\*/g, "");
+  t = t.replace(/\*/g, "");
+  t = t.replace(/__/g, "");
+  t = t.replace(/_/g, "");
+
+  // Remove leading markdown patterns per line
+  t = t
+    .split("\n")
+    .map((line) => line
+      .replace(/^\s{0,3}#{1,6}\s+/g, "")
+      .replace(/^\s{0,3}>\s+/g, "")
+      .replace(/^\s{0,3}[-•]\s+/g, "")
+    )
+    .join("\n");
+
+  // Tidy newlines
+  t = t.replace(/\n{3,}/g, "\n\n").trim();
+  return t;
 }
