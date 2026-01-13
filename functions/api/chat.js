@@ -1,126 +1,268 @@
-export async function onRequestPost(context) {
-  try {
-    const { request, env } = context;
+// Philly GPT - Client
 
-    const OPENAI_API_KEY = env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      return json({ error: "Missing OPENAI_API_KEY in Cloudflare Pages environment variables (Production/Preview)." }, 500);
-    }
+const messagesEl = document.getElementById("messages");
+const composer = document.getElementById("composer");
+const inputEl = document.getElementById("input");
+const sendBtn = document.getElementById("sendBtn");
+const clearBtn = document.getElementById("clearBtn");
+const chipsEl = document.getElementById("chips");
 
-    const body = await request.json().catch(() => null);
-    const message = body?.message?.toString?.().trim?.();
+const weatherValueEl = document.getElementById("weatherValue");
+const weatherMetaEl = document.getElementById("weatherMeta");
 
-    if (!message) {
-      return json({ error: "No message provided." }, 400);
-    }
+const STORAGE_KEY = "phillygpt_chat_v1";
 
-    // System instruction: force clean plain-text, no markdown (#, *, etc.)
-    const systemText = [
-      "You are Philly GPT, a civic helper for Philadelphia.",
-      "Be friendly and practical, like a helpful local who knows how city services work.",
-      "Output rules (must follow):",
-      "- Return plain text only (no markdown).",
-      "- Do NOT use #, *, backticks, bullets like '-' or '•'.",
-      "- If you provide steps, format as 'Step 1:', 'Step 2:' etc.",
-      "- Keep it concise, clear, and actionable.",
-      "- Encourage users to share neighborhood or nearest cross-streets if relevant.",
-      "- If it sounds like an emergency, instruct to call 911.",
-    ].join("\n");
-
-    const payload = {
-      model: "gpt-4.1-mini",
-      input: [
-        {
-          role: "system",
-          content: [{ type: "input_text", text: systemText }]
-        },
-        {
-          role: "user",
-          content: [{ type: "input_text", text: message }]
-        }
-      ],
-      temperature: 0.4
-    };
-
-    const resp = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      const msg = data?.error?.message || "OpenAI request failed.";
-      return json({ error: msg }, 500);
-    }
-
-    const reply = extractText(data) || "Sorry — I couldn’t generate a response.";
-
-    // Final safety cleanup to remove markdown-ish symbols anyway
-    const cleaned = stripMarkdownLike(reply);
-
-    return json({ reply: cleaned }, 200);
-  } catch (err) {
-    return json({ error: "Server error." }, 500);
-  }
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store"
-    }
-  });
-}
-
-/**
- * Responses API text extraction:
- * We walk the output array and collect any output_text chunks.
- */
-function extractText(resp) {
-  const out = resp?.output;
-  if (!Array.isArray(out)) return "";
-
-  let text = "";
-  for (const item of out) {
-    const content = item?.content;
-    if (!Array.isArray(content)) continue;
-
-    for (const c of content) {
-      if (c?.type === "output_text" && typeof c.text === "string") {
-        text += c.text;
-      }
-    }
-  }
-  return text.trim();
-}
-
-function stripMarkdownLike(text) {
+function sanitizePlainText(text) {
+  // Remove common markdown characters and patterns:
+  // - headings (#), emphasis (*, _), code ticks, blockquotes, list markers.
   let t = String(text ?? "");
 
-  // Remove headings / emphasis / code markers / bullets
+  // Remove fenced/code ticks and stray backticks
   t = t.replace(/`+/g, "");
+
+  // Remove leading markdown headings like "### Title"
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+
+  // Remove emphasis markers **bold** *italic* __bold__ _italic_
   t = t.replace(/\*\*/g, "");
   t = t.replace(/\*/g, "");
   t = t.replace(/__/g, "");
   t = t.replace(/_/g, "");
 
-  // Remove leading markdown patterns per line
-  t = t
-    .split("\n")
-    .map((line) => line
-      .replace(/^\s{0,3}#{1,6}\s+/g, "")
-      .replace(/^\s{0,3}>\s+/g, "")
-      .replace(/^\s{0,3}[-•]\s+/g, "")
-    )
-    .join("\n");
+  // Remove blockquote ">"
+  t = t.replace(/^\s{0,3}>\s?/gm, "");
 
-  // Tidy newlines
+  // Remove common list bullets "- " or "* "
+  t = t.replace(/^\s*[-•]\s+/gm, "");
+  t = t.replace(/^\s*\d+\.\s+/gm, (m) => m); // keep numbered lists if present
+
+  // Collapse excessive blank lines
   t = t.replace(/\n{3,}/g, "\n\n").trim();
+
   return t;
 }
+
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addMessage(role, text) {
+  const row = document.createElement("div");
+  row.className = `row ${role}`;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = sanitizePlainText(text);
+
+  if (role !== "user") {
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.textContent = "PG";
+    row.appendChild(avatar);
+  }
+
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollToBottom();
+}
+
+function setBusy(isBusy) {
+  sendBtn.disabled = isBusy;
+  inputEl.disabled = isBusy;
+}
+
+function loadChat() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveChat(chat) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(chat));
+}
+
+function renderChat(chat) {
+  messagesEl.innerHTML = "";
+  for (const m of chat) addMessage(m.role, m.content);
+}
+
+function autoGrow() {
+  inputEl.style.height = "0px";
+  const h = Math.min(inputEl.scrollHeight, 160);
+  inputEl.style.height = h + "px";
+}
+
+async function sendMessage(userText) {
+  const text = userText.trim();
+  if (!text) return;
+
+  const chat = loadChat() ?? [];
+  chat.push({ role: "user", content: text });
+  saveChat(chat);
+
+  addMessage("user", text);
+  inputEl.value = "";
+  autoGrow();
+  setBusy(true);
+
+  // Placeholder assistant bubble
+  addMessage("assistant", "Working on it…");
+
+  try {
+    const resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: chat }),
+    });
+
+    const data = await resp.json().catch(() => ({}));
+
+    // Remove placeholder (last assistant bubble)
+    messagesEl.lastChild?.remove();
+
+    if (!resp.ok) {
+      const msg = data?.error || "Something went wrong. Please try again.";
+      addMessage("assistant", msg);
+      return;
+    }
+
+    const reply = data?.reply || "I didn’t get a response. Please try again.";
+    chat.push({ role: "assistant", content: reply });
+    saveChat(chat);
+    addMessage("assistant", reply);
+  } catch (e) {
+    messagesEl.lastChild?.remove();
+    addMessage("assistant", "Network error. Please check your connection and try again.");
+  } finally {
+    setBusy(false);
+    inputEl.focus();
+  }
+}
+
+function seedIntroIfEmpty() {
+  const existing = loadChat();
+  if (existing && existing.length) {
+    renderChat(existing);
+    return;
+  }
+
+  const intro =
+    "Welcome to Philly GPT.\n\n" +
+    "Tell me what you’re trying to get done (and your neighborhood if it matters). " +
+    "I’ll walk you through the most practical next steps — like who to contact, what info to gather, " +
+    "and what to check if things don’t move.\n\n" +
+    "Try something like: “Streetlight out near my block” or “How do I report illegal dumping?”";
+
+  const chat = [{ role: "assistant", content: intro }];
+  saveChat(chat);
+  renderChat(chat);
+}
+
+composer.addEventListener("submit", (e) => {
+  e.preventDefault();
+  sendMessage(inputEl.value);
+});
+
+inputEl.addEventListener("input", autoGrow);
+
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    composer.requestSubmit();
+  }
+});
+
+clearBtn.addEventListener("click", () => {
+  localStorage.removeItem(STORAGE_KEY);
+  seedIntroIfEmpty();
+  inputEl.focus();
+});
+
+chipsEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-q]");
+  if (!btn) return;
+  inputEl.value = btn.getAttribute("data-q");
+  autoGrow();
+  inputEl.focus();
+});
+
+// Weather (Philadelphia) via Open-Meteo (no API key)
+// Coordinates: Philadelphia ~ 39.9526, -75.1652
+const WEATHER_KEY = "phillygpt_weather_v1";
+const WEATHER_TTL_MS = 10 * 60 * 1000;
+
+function weatherCodeToText(code) {
+  // Minimal friendly mapping
+  const map = {
+    0: "Clear",
+    1: "Mostly clear",
+    2: "Partly cloudy",
+    3: "Cloudy",
+    45: "Fog",
+    48: "Fog",
+    51: "Light drizzle",
+    53: "Drizzle",
+    55: "Heavy drizzle",
+    61: "Light rain",
+    63: "Rain",
+    65: "Heavy rain",
+    71: "Light snow",
+    73: "Snow",
+    75: "Heavy snow",
+    80: "Rain showers",
+    81: "Showers",
+    82: "Heavy showers",
+    95: "Thunderstorm",
+  };
+  return map[code] || "Weather";
+}
+
+async function loadWeather() {
+  try {
+    const cachedRaw = localStorage.getItem(WEATHER_KEY);
+    if (cachedRaw) {
+      const cached = JSON.parse(cachedRaw);
+      if (Date.now() - cached.ts < WEATHER_TTL_MS) {
+        weatherValueEl.textContent = cached.value;
+        weatherMetaEl.textContent = cached.meta || "";
+        return;
+      }
+    }
+
+    const url =
+      "https://api.open-meteo.com/v1/forecast" +
+      "?latitude=39.9526&longitude=-75.1652" +
+      "&current=temperature_2m,weather_code,wind_speed_10m" +
+      "&temperature_unit=fahrenheit&wind_speed_unit=mph" +
+      "&timezone=America%2FNew_York";
+
+    const res = await fetch(url);
+    const j = await res.json();
+
+    const temp = Math.round(j?.current?.temperature_2m);
+    const code = j?.current?.weather_code;
+    const wind = Math.round(j?.current?.wind_speed_10m);
+
+    const desc = weatherCodeToText(code);
+    const value = `${temp}°F • ${desc}`;
+    const meta = `Wind: ${wind} mph • Updated: ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+
+    weatherValueEl.textContent = value;
+    weatherMetaEl.textContent = meta;
+
+    localStorage.setItem(WEATHER_KEY, JSON.stringify({ ts: Date.now(), value, meta }));
+  } catch {
+    weatherValueEl.textContent = "Unavailable";
+    weatherMetaEl.textContent = "";
+  }
+}
+
+// Init
+seedIntroIfEmpty();
+autoGrow();
+loadWeather();
+setInterval(loadWeather, WEATHER_TTL_MS);
