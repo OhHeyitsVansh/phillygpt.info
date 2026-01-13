@@ -1,75 +1,150 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1324" />
+  <meta name="description" content="Philly GPT — civic help for Philadelphia (311, parking basics, SEPTA tips)." />
+
   <title>Philly GPT</title>
-  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- PWA / Add to Home Screen helpers -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
-  <header class="top">
+  <div class="bg"></div>
+
+  <header class="topbar">
     <div class="brand">
-      <div class="logo">PG</div>
-      <div>
+      <div class="logo" aria-hidden="true">PG</div>
+      <div class="brand-text">
         <div class="title">Philly GPT</div>
-        <div class="sub">Civic help for Philadelphia (311, parking, SEPTA)</div>
+        <div class="subtitle">Civic help for Philadelphia (311, parking basics, SEPTA tips)</div>
       </div>
     </div>
 
-    <div class="right">
-      <div class="pill" id="weather">Weather: Loading…</div>
-      <div class="pill subtle">Emergency: <b>911</b></div>
+    <div class="topbar-right">
+      <div class="pill" id="weatherPill" title="Philadelphia weather">
+        <span class="dot"></span>
+        <span class="pill-label">Weather:</span>
+        <span id="weatherValue">Loading…</span>
+      </div>
+
+      <a class="pill pill-cta" href="tel:911" aria-label="For emergencies call 911">
+        For emergencies call <strong>911</strong>
+      </a>
     </div>
   </header>
 
-  <main class="wrap">
-    <section class="card">
-      <div class="cardTop">
+  <main class="layout">
+    <section class="card chat-card" aria-label="Chat">
+      <div class="card-head">
         <div>
-          <div class="h">Chat</div>
-          <div class="p">Ask a Philly question. I’ll give practical next steps.</div>
+          <div class="card-title">Chat</div>
+          <div class="card-subtitle">Ask anything Philly. I’ll give practical steps and what to check next.</div>
         </div>
-        <button id="clear" class="btn">Clear</button>
+        <button class="btn ghost" id="clearBtn" type="button">Clear</button>
       </div>
 
-      <div id="msgs" class="msgs"></div>
+      <div class="chat-wrap">
+        <div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div>
 
-      <div class="row">
-        <textarea id="input" class="input" rows="2"
-          placeholder="Ask something… (Enter to send, Shift+Enter for new line)"></textarea>
-        <button id="send" class="btn primary">Send</button>
+        <form class="composer" id="chatForm">
+          <textarea
+            id="input"
+            class="input"
+            rows="2"
+            placeholder="Ask a Philly question… (Enter sends • Shift+Enter adds a new line)"
+            autocomplete="off"
+            spellcheck="true"
+          ></textarea>
+          <button class="btn primary" id="sendBtn" type="submit">Send</button>
+        </form>
+
+        <div class="tiny" id="statusLine"></div>
       </div>
-
-      <div class="tips">Tip: Include your neighborhood or closest cross-streets for better guidance.</div>
     </section>
 
-    <aside class="card side">
-      <div class="cardTop">
+    <aside class="card side-card" aria-label="Quick questions">
+      <div class="card-head tight">
         <div>
-          <div class="h">Quick questions</div>
-          <div class="p">Tap one to fill the box.</div>
+          <div class="card-title">Quick questions</div>
+          <div class="card-subtitle">Tap one to send.</div>
         </div>
       </div>
 
       <div class="chips" id="chips">
-        <button class="chip" data-q="How do I report a pothole in Philly?">Report a pothole</button>
-        <button class="chip" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
-        <button class="chip" data-q="How do I contact 311 and what details should I include?">Contact 311</button>
-        <button class="chip" data-q="What are the basics of parking rules in Philadelphia?">Parking basics</button>
-        <button class="chip" data-q="How do I plan a SEPTA trip and check delays?">SEPTA planning</button>
+        <button class="chip" type="button" data-q="How do I report a pothole in Philly?">Report a pothole</button>
+        <button class="chip" type="button" data-q="How do I report illegal dumping in Philadelphia?">Illegal dumping</button>
+        <button class="chip" type="button" data-q="How do I contact Philly 311 and what info should I provide?">Contact 311</button>
+        <button class="chip" type="button" data-q="What are the basic street parking rules in Philadelphia?">Parking basics</button>
+        <button class="chip" type="button" data-q="Help me plan a SEPTA trip. What do you need from me?">SEPTA planning</button>
+        <button class="chip" type="button" data-q="Where can I find reliable Philly city services and official links for my issue?">Official links</button>
       </div>
 
-      <div class="notes">
-        <div class="nh">Notes</div>
-        <ul>
+      <div class="divider"></div>
+
+      <div class="note-block">
+        <div class="note-title">Notes</div>
+        <ul class="notes">
           <li>Not affiliated with the City of Philadelphia</li>
           <li>Don’t share sensitive personal info here</li>
           <li>For emergencies: 911</li>
         </ul>
       </div>
+
+      <div class="divider"></div>
+
+      <button class="btn secondary full" id="a2hsBtn" type="button">
+        Add Philly GPT to your home screen
+      </button>
+
+      <div class="tiny">
+        Tip: On iPhone, this works best in Safari.
+      </div>
     </aside>
   </main>
 
-  <script src="./app.js"></script>
+  <!-- Add to Home Screen modal -->
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div class="modal-title" id="modalTitle">Add to your home screen</div>
+        <button class="btn ghost" id="modalClose" type="button">Close</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-section">
+          <div class="modal-h">iPhone (Safari)</div>
+          <ol class="modal-steps">
+            <li>Tap the <strong>Share</strong> button (square with arrow).</li>
+            <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
+            <li>Name it “Philly GPT” and tap <strong>Add</strong>.</li>
+          </ol>
+        </div>
+
+        <div class="modal-section">
+          <div class="modal-h">Android (Chrome)</div>
+          <ol class="modal-steps">
+            <li>Tap the <strong>⋮</strong> menu in the top-right.</li>
+            <li>Tap <strong>Add to Home screen</strong>.</li>
+            <li>Confirm the name and tap <strong>Add</strong>.</li>
+          </ol>
+        </div>
+
+        <div class="tiny">
+          If you don’t see the option, refresh the page and try again.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js" defer></script>
 </body>
 </html>
