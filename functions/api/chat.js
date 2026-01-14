@@ -1,10 +1,7 @@
 // /functions/api/chat.js
 
 export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders()
-  });
+  return new Response(null, { status: 204, headers: corsHeaders() });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -20,12 +17,11 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "Invalid JSON body" }, 400);
     }
 
-    // Accept either:
-    // { message: "..." } OR { messages: [{role, content}, ...] }
     const rawMessage = typeof body?.message === "string" ? body.message : "";
     const rawMessages = Array.isArray(body?.messages) ? body.messages : null;
 
-    // Prefer sending instructions via `instructions`
+    const model = (env.OPENAI_MODEL || "gpt-5").trim();
+
     const instructions =
       "You are PhillyGPT, a friendly Philadelphia tour guide. " +
       "Write clean plain text (no markdown). " +
@@ -33,8 +29,6 @@ export async function onRequestPost({ request, env }) {
       "Do not invent business hours, addresses, prices, or events. " +
       "Be neighborhood-aware and realistic with travel time. " +
       "If key details are missing (time window, starting point, vibe, budget), ask 1 short follow-up question.";
-
-    const model = (env.OPENAI_MODEL || "gpt-5").trim();
 
     let input;
 
@@ -46,10 +40,7 @@ export async function onRequestPost({ request, env }) {
     } else {
       const userText = String(rawMessage || "").trim();
       if (!userText) {
-        return json(
-          { text: "Tell me your time window, your vibe, and where you’re starting from (ex: City Hall)." },
-          200
-        );
+        return json({ text: "Tell me your time window, vibe, budget, and where you’re starting from." }, 200);
       }
       input = [{ role: "user", content: userText }];
     }
@@ -58,7 +49,7 @@ export async function onRequestPost({ request, env }) {
       model,
       instructions,
       input,
-      max_output_tokens: 600
+      max_output_tokens: 650
     };
 
     const resp = await fetch("https://api.openai.com/v1/responses", {
@@ -80,11 +71,7 @@ export async function onRequestPost({ request, env }) {
 
     if (!resp.ok) {
       return json(
-        {
-          error: "OpenAI error",
-          status: resp.status,
-          details: data?.error || raw.slice(0, 400)
-        },
+        { error: "OpenAI error", status: resp.status, details: data?.error || raw.slice(0, 400) },
         500
       );
     }
@@ -138,7 +125,4 @@ function json(obj, status = 200) {
     headers: {
       ...corsHeaders(),
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store"
-    }
-  });
-}
+      "Cache-Control": "n
