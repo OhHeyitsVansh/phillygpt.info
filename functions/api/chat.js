@@ -50,15 +50,20 @@ export async function onRequest(context) {
 
   if (Array.isArray(messages)) {
     normalizedMessages = messages
-      .filter(m => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
-      .map(m => ({ role: m.role, content: sanitizeContent(m.content) }));
+      .filter(
+        (m) =>
+          m &&
+          typeof m.content === "string" &&
+          (m.role === "user" || m.role === "assistant")
+      )
+      .map((m) => ({ role: m.role, content: sanitizeContent(m.content) }));
   } else if (typeof message === "string") {
     normalizedMessages = [{ role: "user", content: sanitizeContent(message) }];
   } else {
     return makeCorsResponse(400, {
       error: "Invalid payload",
       status: 400,
-      details: "Send either { messages: [...] } or { message: \"...\" }."
+      details: 'Send either { "messages": [...] } or { "message": "..." }.'
     });
   }
 
@@ -70,6 +75,7 @@ export async function onRequest(context) {
     });
   }
 
+  // Basic abuse control: limit history depth and per-message length
   normalizedMessages = normalizedMessages.slice(-40);
 
   const systemPrompt = buildSystemPrompt();
@@ -85,7 +91,7 @@ export async function onRequest(context) {
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -96,23 +102,43 @@ export async function onRequest(context) {
     });
 
     if (!openAiResponse.ok) {
-      const errorText = await openAiResponse.text();
+      let details = "";
+      try {
+        const errJson = await openAiResponse.json();
+        details = JSON.stringify(errJson);
+      } catch {
+        details = await openAiResponse.text();
+      }
       return makeCorsResponse(openAiResponse.status, {
-        error: "OpenAI API error",
+        error: "OpenAI API error from OpenAI /v1/responses",
         status: openAiResponse.status,
-        details: truncate(errorText, 500)
+        details: truncate(details, 500)
       });
     }
 
     const data = await openAiResponse.json();
-    const assistantText = extractAssistantText(data) || "Sorry, I could not generate a response this time.";
+
+    // Optional: short debug log in Cloudflare logs (remove if you prefer)
+    try {
+      console.log(
+        "OpenAI responses payload (truncated):",
+        JSON.stringify(data).slice(0, 500)
+      );
+    } catch (e) {
+      // ignore logging errors
+    }
+
+    const assistantText =
+      extractAssistantText(data) ||
+      "Sorry, I could not generate a response this time.";
 
     return makeCorsResponse(200, { text: assistantText });
   } catch (e) {
     return makeCorsResponse(502, {
       error: "Upstream error",
       status: 502,
-      details: e instanceof Error ? truncate(e.message, 300) : "Unknown error."
+      details:
+        e instanceof Error ? truncate(e.message, 300) : "Unknown error."
     });
   }
 }
@@ -150,60 +176,51 @@ function buildSystemPrompt() {
 function extractAssistantText(data) {
   if (!data) return "";
 
-  if (typeof data.output_text === "string") {
-    return data.output_text;
+  // 1) Helper field some Responses models set
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
   }
 
+  // 2) Primary Responses shape: output[] with message items and output_text blocks
+  if (Array.isArray(data.output)) {
+    for (const item of data.output) {
+      if (!item || item.type !== "message" || !Array.isArray(item.content)) {
+        continue;
+      }
+      for (const block of item.content) {
+        if (
+          block &&
+          block.type === "output_text" &&
+          typeof block.text === "string" &&
+          block.text.trim()
+        ) {
+          return block.text.trim();
+        }
+      }
+    }
+  }
+
+  // 3) Fallback: scan any nested content arrays for .text fields
   if (Array.isArray(data.output)) {
     const texts = [];
     for (const item of data.output) {
-      if (!item) continue;
-      if (typeof item === "string") {
-        texts.push(item);
-      } else if (typeof item.content === "string") {
-        texts.push(item.content);
-      } else if (Array.isArray(item.content)) {
-        for (const c of item.content) {
-          if (!c) continue;
-          if (typeof c === "string") {
-            texts.push(c);
-          } else if (typeof c.text === "string") {
-            texts.push(c.text);
-          } else if (c.type === "output_text" && c.output_text && typeof c.output_text.text === "string") {
-            texts.push(c.output_text.text);
-          }
-        }
-      } else if (item.type === "output_text" && item.output_text && typeof item.output_text.text === "string") {
-        texts.push(item.output_text.text);
-      }
-    }
-    if (texts.length > 0) {
-      return texts.join("\n\n").trim();
-    }
-  }
-
-  if (Array.isArray(data.choices)) {
-    const choice0 = data.choices[0];
-    if (choice0) {
-      if (choice0.message && typeof choice0.message.content === "string") {
-        return choice0.message.content;
-      }
-      if (Array.isArray(choice0.output)) {
-        for (const item of choice0.output) {
-          if (!item) continue;
-          if (typeof item === "string") return item;
-          if (typeof item.content === "string") return item.content;
-          if (Array.isArray(item.content)) {
-            const candidate = item.content.find(c => c && typeof c.text === "string");
-            if (candidate) return candidate.text;
-          }
+      const content = item && item.content;
+      if (!content || !Array.isArray(content)) continue;
+      for (const block of content) {
+        if (block && typeof block.text === "string") {
+          texts.push(block.text);
         }
       }
     }
+    if (texts.length) return texts.join("\n\n").trim();
   }
 
-  if (data.output && data.output[0] && data.output[0].content && data.output[0].content[0] && typeof data.output[0].content[0].text === "string") {
-    return data.output[0].content[0].text;
+  // 4) Legacy-style fallback in case Responses is emulating choices[]
+  if (Array.isArray(data.choices) && data.choices[0]) {
+    const c0 = data.choices[0];
+    if (c0.message && typeof c0.message.content === "string") {
+      return c0.message.content.trim();
+    }
   }
 
   return "";
