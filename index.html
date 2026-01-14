@@ -1,103 +1,91 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Philly GPT</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-
-  <body>
-    <div class="bg"></div>
-
-    <header class="top">
-      <div class="brand">
-        <div class="logo">PG</div>
-        <div class="brandText">
-          <div class="brandName">Philly GPT</div>
-          <div class="brandTag">Tour guide for food, neighborhoods, museums, and day plans</div>
+<head>
+  <meta charset="UTF-8">
+  <title>PhillyGPT · Your Friendly Philadelphia Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PhillyGPT is a hip, friendly Philadelphia tour guide chatbot for food, neighborhoods, museums, and day plans.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-bar">
+      <div class="logo-area">
+        <div class="logo-circle">PG</div>
+        <div class="logo-text">
+          <div class="logo-title">PhillyGPT</div>
+          <div class="logo-subtitle">Your friendly Philly guide</div>
         </div>
       </div>
-
-      <div class="topRight">
-        <div class="pill">
-          <span class="dot"></span>
-          <span class="city">Philadelphia</span>
-          <span class="sep">·</span>
-          <span id="weatherValue">Loading weather…</span>
-        </div>
-        <div class="pill emergency">
-          <strong>Emergency:</strong>&nbsp;911
-        </div>
+      <div class="weather-area">
+        <div class="weather-icon" id="weather-icon" aria-hidden="true">⛅</div>
+        <div class="weather-text" id="weather-text">Loading Philadelphia weather...</div>
       </div>
     </header>
 
-    <main class="wrap">
-      <div class="grid">
-        <!-- Chat -->
-        <section class="card chatCard">
-          <div class="cardHead">
-            <div>
-              <div class="cardTitle">Chat</div>
-              <div class="cardSub">Tell me your vibe, time, budget, and where you’re starting. I’ll plan it.</div>
-            </div>
-            <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+    <main class="main-layout">
+      <section class="chat-section" aria-label="Philly chat">
+        <div class="chat-card glass">
+          <div class="chat-header">
+            <div class="chat-title">Chat with PhillyGPT</div>
+            <button class="clear-button" id="clear-chat" type="button">Clear</button>
           </div>
-
-          <div class="messages" id="messages"></div>
-
-          <form class="composer" id="chatForm">
+          <div class="chat-body" id="chat-messages" aria-live="polite"></div>
+          <div class="typing-indicator" id="typing-indicator" aria-hidden="true">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>
+          <form class="chat-input-row" id="chat-form">
             <textarea
-              class="input"
-              id="input"
-              rows="1"
-              placeholder='Try: "Rainy day plan in Philly, starting near City Hall"'
-              autocomplete="off"
+              id="chat-input"
+              class="chat-input"
+              rows="2"
+              placeholder="Ask for a day plan, neighborhood recs, or a food crawl in Philly..."
             ></textarea>
-            <button class="btn primary" type="submit" id="sendBtn">Send</button>
+            <button class="send-button" id="send-button" type="submit" aria-label="Send message">Send</button>
           </form>
+          <div class="input-hint">
+            Enter to send · Shift+Enter for newline
+          </div>
+        </div>
+      </section>
 
-          <div class="hint">Tip: Shift+Enter for a new line.</div>
-        </section>
-
-        <!-- Side -->
-        <aside class="card sideCard">
-          <div class="cardTitle">Quick prompts</div>
-          <div class="chips" id="chips">
-            <button class="chip" type="button" data-prompt="First-time day plan in Philly, starting near City Hall. Mid budget.">
+      <aside class="side-section" aria-label="Quick ideas">
+        <div class="chips-card glass">
+          <div class="chips-header">Jump in with a quick idea</div>
+          <div class="chips-grid">
+            <button class="chip" data-prompt="I am visiting Philly for the first time. Can you plan a chill one-day itinerary for me?">
               First-time day plan
             </button>
-            <button class="chip" type="button" data-prompt="Food crawl in Philly. 3-4 hours. Starting Center City.">
-              Food crawl
-            </button>
-            <button class="chip" type="button" data-prompt="Old City plan (3 hours). History + walking. Starting near Independence Hall.">
-              Old City (3 hours)
-            </button>
-            <button class="chip" type="button" data-prompt="Museums half-day plan. Starting near City Hall. Include 1 nearby lunch spot.">
-              Museums (half day)
-            </button>
-            <button class="chip" type="button" data-prompt="Rainy day plan in Philly. Starting near City Hall.">
+            <button class="chip" data-prompt="Can you suggest a cozy rainy day plan in Philadelphia with indoor things to do?">
               Rainy day plan
             </button>
-            <button class="chip" type="button" data-prompt="SEPTA basics for a visitor: getting around Philly simply.">
+            <button class="chip" data-prompt="Can you design a food crawl in Philadelphia with a mix of classics and local spots?">
+              Food crawl
+            </button>
+            <button class="chip" data-prompt="I want to explore Old City in Philadelphia. Can you suggest a half-day walking plan?">
+              Old City focus
+            </button>
+            <button class="chip" data-prompt="What are some good museums and galleries to visit in Philadelphia for a full day?">
+              Museums & galleries
+            </button>
+            <button class="chip" data-prompt="I am new to SEPTA in Philadelphia. Can you explain the basics and how to get around?">
               SEPTA basics
             </button>
           </div>
-
-          <div class="divider"></div>
-
-          <div class="noteTitle">Notes</div>
-          <ul class="notes">
-            <li>Not affiliated with the City of Philadelphia</li>
-            <li>Don’t share sensitive personal information</li>
-            <li>For emergencies, call 911</li>
-          </ul>
-        </aside>
-      </div>
+          <div class="chips-note">
+            PhillyGPT focuses on realistic routes and timing but cannot guarantee hours, prices, or what is open right now.
+          </div>
+        </div>
+      </aside>
     </main>
 
-    <footer class="foot">© Philly GPT</footer>
+    <footer class="footer">
+      <div class="footer-text">
+        Not affiliated with the City of Philadelphia · For emergencies call 911
+      </div>
+    </footer>
+  </div>
 
-    <script src="/chat.js"></script>
-  </body>
+  <script src="/chat.js"></script>
+</body>
 </html>
