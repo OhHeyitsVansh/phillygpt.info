@@ -1,88 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>PhillyGPT · Your Friendly Philadelphia Guide</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="PhillyGPT is a hip, friendly Philadelphia tour guide chatbot for food, neighborhoods, museums, and day plans.">
-  <link rel="stylesheet" href="/styles.css">
+  <meta charset="UTF-8" />
+  <title>PhillyGPT · Philly 411 Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="PhillyGPT is your Philly 411: a street-smart chatbot for Philadelphia and close suburbs only." />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="top-bar">
-      <div class="logo-area">
-        <div class="logo-circle">PG</div>
-        <div class="logo-text">
-          <div class="logo-title">PhillyGPT</div>
-          <div class="logo-subtitle">Your friendly Philly guide</div>
+  <div class="app-root">
+    <header class="app-header glass">
+      <div class="brand">
+        <div class="brand-logo">
+          <span class="brand-logo-mark">PG</span>
+        </div>
+        <div class="brand-text">
+          <h1>PhillyGPT</h1>
+          <p>Your Philly 411, on demand.</p>
         </div>
       </div>
-      <div class="weather-area">
-        <div class="weather-icon" id="weather-icon" aria-hidden="true">⛅</div>
-        <div class="weather-text" id="weather-text">Loading Philadelphia weather...</div>
+      <div class="weather-badge" id="weatherBadge">
+        <div class="weather-main">
+          <span class="weather-icon" id="weatherIcon">⛅</span>
+          <span class="weather-temp" id="weatherTemp">--°F</span>
+        </div>
+        <div class="weather-meta">
+          <span class="weather-label" id="weatherLabel">Loading Philly weather…</span>
+        </div>
       </div>
     </header>
 
-    <main class="main-layout">
-      <section class="chat-section" aria-label="Philly chat">
-        <div class="chat-card glass">
-          <div class="chat-header">
-            <div class="chat-title">Chat with PhillyGPT</div>
-            <button class="clear-button" id="clear-chat" type="button">Clear</button>
+    <main class="app-main">
+      <section class="chat-section glass">
+        <div class="chat-header-row">
+          <div>
+            <h2>Chat</h2>
+            <p class="chat-subtitle">
+              Ask anything about Philadelphia and nearby suburbs. If it’s not Philly, PhillyGPT will steer you back.
+            </p>
           </div>
-          <div class="chat-body" id="chat-messages" aria-live="polite"></div>
-          <div class="typing-indicator" id="typing-indicator" aria-hidden="true">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          </div>
-          <form class="chat-input-row" id="chat-form">
-            <textarea
-              id="chat-input"
-              class="chat-input"
-              rows="2"
-              placeholder="Ask for a day plan, neighborhood recs, or a food crawl in Philly..."
-            ></textarea>
-            <button class="send-button" id="send-button" type="submit" aria-label="Send message">Send</button>
-          </form>
-          <div class="input-hint">
-            Enter to send · Shift+Enter for newline
-          </div>
+          <button id="clearChatBtn" class="ghost-btn" type="button">Clear chat</button>
         </div>
+
+        <div id="chatWindow" class="chat-window">
+          <!-- Messages rendered here -->
+        </div>
+
+        <form id="chatForm" class="chat-input-container">
+          <textarea
+            id="chatInput"
+            class="chat-input"
+            rows="2"
+            placeholder="Ask PhillyGPT something like: “I’m in Fishtown with 4 hours to kill, what should I do?”"
+          ></textarea>
+          <div class="chat-input-footer">
+            <span class="input-hint">Enter to send · Shift+Enter for a new line</span>
+            <button id="sendBtn" class="primary-btn" type="submit">Send</button>
+          </div>
+        </form>
       </section>
 
-      <aside class="side-section" aria-label="Quick ideas">
-        <div class="chips-card glass">
-          <div class="chips-header">Jump in with a quick idea</div>
-          <div class="chips-grid">
-            <button class="chip" data-prompt="I am visiting Philly for the first time. Can you plan a chill one-day itinerary for me?">
-              First-time day plan
-            </button>
-            <button class="chip" data-prompt="Can you suggest a cozy rainy day plan in Philadelphia with indoor things to do?">
-              Rainy day plan
-            </button>
-            <button class="chip" data-prompt="Can you design a food crawl in Philadelphia with a mix of classics and local spots?">
-              Food crawl
-            </button>
-            <button class="chip" data-prompt="I want to explore Old City in Philadelphia. Can you suggest a half-day walking plan?">
-              Old City focus
-            </button>
-            <button class="chip" data-prompt="What are some good museums and galleries to visit in Philadelphia for a full day?">
-              Museums & galleries
-            </button>
-            <button class="chip" data-prompt="I am new to SEPTA in Philadelphia. Can you explain the basics and how to get around?">
-              SEPTA basics
-            </button>
-          </div>
-          <div class="chips-note">
-            PhillyGPT focuses on realistic routes and timing but cannot guarantee hours, prices, or what is open right now.
-          </div>
+      <aside class="side-panel glass">
+        <h3>Quick prompts</h3>
+        <p class="side-subtitle">Tap a chip to drop a Philly-flavored starter prompt.</p>
+        <div class="chips" id="quickPrompts">
+          <button type="button" class="chip" data-prompt="I’m visiting Philly for the first time and have one full day. Build me a very Philly day plan starting from Center City.">
+            First timer day plan
+          </button>
+          <button type="button" class="chip" data-prompt="Plan a Philly food crawl that hits classics and a couple of newer spots. I’ll mostly be around South Philly and Center City.">
+            Food crawl
+          </button>
+          <button type="button" class="chip" data-prompt="I’m in Philly on a rainy day. What are good indoor things to do that still feel local?">
+            Rainy day
+          </button>
+          <button type="button" class="chip" data-prompt="Give me a walking plan to explore Old City and nearby historic spots, with 2) coffee options and 2) food options.">
+            Old City wander
+          </button>
+          <button type="button" class="chip" data-prompt="Help me plan a museums-focused afternoon in Philly with realistic timing and 2 backup options.">
+            Museums run
+          </button>
+          <button type="button" class="chip" data-prompt="Explain SEPTA basics for getting around Philly for a weekend trip, including Key Card tips and rough travel times.">
+            SEPTA basics
+          </button>
+          <button type="button" class="chip" data-prompt="Plan a date night in Philly with dinner, a walk, and a nightcap vibe. Assume we’re okay with SEPTA or rideshare.">
+            Date night
+          </button>
+        </div>
+
+        <div class="side-tip">
+          <h4>How PhillyGPT answers</h4>
+          <p>
+            PhillyGPT focuses only on Philly and nearby suburbs, keeps safety in mind, and gives realistic travel vibes instead of rigid schedules. For time-sensitive stuff, it suggests how to verify details.
+          </p>
         </div>
       </aside>
     </main>
 
-    <footer class="footer">
-      <div class="footer-text">
-        Not affiliated with the City of Philadelphia · For emergencies call 911
-      </div>
+    <footer class="app-footer">
+      <p>Not affiliated with the City of Philadelphia · For emergencies call 911</p>
     </footer>
   </div>
 
