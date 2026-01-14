@@ -14,7 +14,7 @@
   function normalizeOutput(text) {
     let t = String(text ?? "");
 
-    // Strip typical markdown clutter
+    // Strip markdown clutter
     t = t.replace(/```[\s\S]*?```/g, (block) =>
       block.replace(/```[\w-]*\n?/g, "").replace(/```/g, "").trim()
     );
@@ -23,6 +23,7 @@
     t = t.replace(/\*(.*?)\*/g, "$1");
     t = t.replace(/^[-*]\s+/gm, "");
     t = t.replace(/\n{3,}/g, "\n\n").trim();
+
     return t;
   }
 
@@ -101,7 +102,7 @@
   }
 
   function buildMessagesForAPI() {
-    // Take last 20 turns, convert stored {role,text} -> {role,content}
+    // last 20 turns -> {role, content}
     const saved = loadMessages();
     return saved.slice(-20).map((m) => ({ role: m.role, content: m.text }));
   }
@@ -135,7 +136,6 @@
       persistMessages();
       scrollToBottom();
     } catch (e) {
-      // Show REAL error instead of generic message
       replaceLastAssistantBubble(`Chat error: ${e.message}`);
       persistMessages();
       scrollToBottom();
@@ -203,6 +203,7 @@
     autosizeTextarea();
     inputEl.addEventListener("input", autosizeTextarea);
 
+    // Submit on Send
     formEl.addEventListener("submit", (e) => {
       e.preventDefault();
       const text = inputEl.value.trim();
@@ -212,6 +213,7 @@
       sendMessage(text);
     });
 
+    // Enter sends, Shift+Enter newline
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
