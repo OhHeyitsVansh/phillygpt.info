@@ -96,6 +96,19 @@
     for (const m of saved) addMessage(m.role, m.text);
   }
 
+  function replaceLastAssistantBubble(text) {
+    const bubbles = messagesEl.querySelectorAll(".msg.bot .bubble");
+    const lastBubble = bubbles[bubbles.length - 1];
+    if (lastBubble) lastBubble.textContent = normalizeOutput(text);
+  }
+
+  function buildMessagesForAPI() {
+    // Build chat history for the API so the assistant stays consistent
+    // Convert {role, text} -> {role, content}
+    const saved = loadMessages();
+    return saved.slice(-20).map((m) => ({ role: m.role, content: m.text }));
+  }
+
   async function sendMessage(userText) {
     addMessage("user", userText);
     persistMessages();
@@ -103,31 +116,31 @@
     addMessage("assistant", "Thinking…");
 
     try {
+      const payload = { messages: buildMessagesForAPI() };
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify(payload)
       });
 
+      const contentType = res.headers.get("content-type") || "";
+      const raw = contentType.includes("application/json") ? await res.json() : await res.text();
+
       if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(`API error (${res.status}). ${errText}`.trim());
+        const details = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+        throw new Error(`API ${res.status}: ${details}`);
       }
 
-      const data = await res.json();
-      const reply = normalizeOutput(data?.text || "Sorry — I didn’t get a response.");
+      const reply =
+        (typeof raw === "object" && raw && (raw.text || raw.reply || raw.message)) ||
+        "Sorry — I didn’t get a response.";
 
-      // Replace the last “Thinking…” bubble
-      const lastBubble = messagesEl.querySelector(".msg.bot:last-child .bubble");
-      if (lastBubble) lastBubble.textContent = reply;
+      replaceLastAssistantBubble(reply);
       persistMessages();
       scrollToBottom();
     } catch (e) {
-      const lastBubble = messagesEl.querySelector(".msg.bot:last-child .bubble");
-      if (lastBubble) {
-        lastBubble.textContent =
-          "I couldn’t reach the chat API. In Cloudflare Pages, open Functions logs and confirm /functions/api/chat.js deployed and OPENAI_API_KEY is set.";
-      }
+      replaceLastAssistantBubble(`Chat error: ${e.message}`);
       persistMessages();
       scrollToBottom();
       console.error(e);
