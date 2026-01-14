@@ -1,12 +1,18 @@
 // /functions/api/chat.js
 
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders()
+  });
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     if (!env.OPENAI_API_KEY) {
       return json({ error: "Missing OPENAI_API_KEY" }, 500);
     }
 
-    // Parse request JSON safely
     let body;
     try {
       body = await request.json();
@@ -15,13 +21,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Accept either:
-    // 1) { message: "hi" }   (your original frontend)
-    // 2) { messages: [{role, content}, ...] } (recommended, keeps context)
+    // { message: "..." } OR { messages: [{role, content}, ...] }
     const rawMessage = typeof body?.message === "string" ? body.message : "";
     const rawMessages = Array.isArray(body?.messages) ? body.messages : null;
 
-    // System instructions for the assistant (Responses API supports instructions)
-    // Note: keep it short and strict to reduce hallucinations.
+    // Prefer sending instructions via `instructions`
     const instructions =
       "You are PhillyGPT, a friendly Philadelphia tour guide. " +
       "Write clean plain text (no markdown). " +
@@ -30,23 +34,20 @@ export async function onRequestPost({ request, env }) {
       "Be neighborhood-aware and realistic with travel time. " +
       "If key details are missing (time window, starting point, vibe, budget), ask 1 short follow-up question.";
 
-    // Choose model (gpt-5 family is valid; you can set env.OPENAI_MODEL to gpt-5.2 / gpt-5-mini, etc.) :contentReference[oaicite:1]{index=1}
     const model = (env.OPENAI_MODEL || "gpt-5").trim();
 
-    // Build "input" for Responses API
-    // If messages array provided, we use it (role/content). Otherwise, fall back to single message.
     let input;
 
     if (rawMessages && rawMessages.length) {
       input = rawMessages
         .filter((m) => m && typeof m.role === "string" && typeof m.content === "string")
         .map((m) => ({ role: m.role, content: String(m.content) }))
-        .slice(-24); // keep last N turns so you don't blow context
+        .slice(-24);
     } else {
       const userText = String(rawMessage || "").trim();
       if (!userText) {
         return json(
-          { text: "Tell me your time window, your vibe (food/history/art/nightlife), and where you’re starting from." },
+          { text: "Tell me your time window, your vibe, and where you’re starting from (ex: City Hall)." },
           200
         );
       }
@@ -55,8 +56,8 @@ export async function onRequestPost({ request, env }) {
 
     const payload = {
       model,
-      instructions,        // preferred for system behavior :contentReference[oaicite:2]{index=2}
-      input,               // can be string or array of role/content :contentReference[oaicite:3]{index=3}
+      instructions,
+      input,
       max_output_tokens: 600
     };
 
@@ -69,17 +70,21 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify(payload)
     });
 
-    const dataText = await resp.text(); // read once
+    const raw = await resp.text();
     let data;
     try {
-      data = JSON.parse(dataText);
+      data = JSON.parse(raw);
     } catch {
-      return json({ error: `OpenAI returned non-JSON: ${dataText.slice(0, 300)}` }, 502);
+      return json({ error: "OpenAI returned non-JSON", details: raw.slice(0, 400) }, 502);
     }
 
     if (!resp.ok) {
       return json(
-        { error: `OpenAI error: ${resp.status}`, details: data?.error || dataText?.slice(0, 500) },
+        {
+          error: "OpenAI error",
+          status: resp.status,
+          details: data?.error || raw.slice(0, 400)
+        },
         500
       );
     }
@@ -91,13 +96,9 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// --- helpers ---
-
 function extractOutputText(data) {
-  // Some responses include output_text directly
   if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text;
 
-  // Otherwise traverse output messages
   const out = Array.isArray(data?.output) ? data.output : [];
   for (const item of out) {
     if (item?.type === "message" && item?.role === "assistant" && Array.isArray(item?.content)) {
@@ -107,7 +108,6 @@ function extractOutputText(data) {
       if (chunk?.text) return chunk.text;
     }
   }
-
   return "Sorry — I couldn’t generate a response.";
 }
 
@@ -124,10 +124,19 @@ function clean(text) {
   return t;
 }
 
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  };
+}
+
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: {
+      ...corsHeaders(),
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store"
     }
