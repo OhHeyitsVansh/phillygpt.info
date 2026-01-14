@@ -9,12 +9,12 @@
   const weatherValueEl = $("weatherValue");
   const chipsEl = $("chips");
 
-  const STORAGE_KEY = "phillygpt_tourguide_chat_v2";
+  const STORAGE_KEY = "phillygpt_tourguide_chat_v3";
 
   function normalizeOutput(text) {
     let t = String(text ?? "");
 
-    // Remove common markdown clutter so the UI stays clean.
+    // Strip typical markdown clutter
     t = t.replace(/```[\s\S]*?```/g, (block) =>
       block.replace(/```[\w-]*\n?/g, "").replace(/```/g, "").trim()
     );
@@ -22,9 +22,7 @@
     t = t.replace(/\*\*(.*?)\*\*/g, "$1");
     t = t.replace(/\*(.*?)\*/g, "$1");
     t = t.replace(/^[-*]\s+/gm, "");
-    t = t.replace(/^\d+\.\s+/gm, (m) => m.replace(".", ") "));
     t = t.replace(/\n{3,}/g, "\n\n").trim();
-
     return t;
   }
 
@@ -50,25 +48,10 @@
     scrollToBottom();
   }
 
-  function setIntroIfEmpty() {
-    const saved = loadMessages();
-    if (saved.length) return;
-
-    addMessage(
-      "assistant",
-      [
-        "Welcome to Philly.",
-        "",
-        "Tell me:",
-        "1) how much time you have (2 hours / half day / full day)",
-        "2) your vibe (history, food, art, nightlife, family-friendly)",
-        "3) your budget (cheap / mid / splurge)",
-        "4) where you’re starting (hotel, neighborhood, or landmark)",
-        "",
-        "I’ll build a simple plan with nearby options and what to do next."
-      ].join("\n")
-    );
-    persistMessages();
+  function replaceLastAssistantBubble(text) {
+    const bubbles = messagesEl.querySelectorAll(".msg.bot .bubble");
+    const lastBubble = bubbles[bubbles.length - 1];
+    if (lastBubble) lastBubble.textContent = normalizeOutput(text);
   }
 
   function persistMessages() {
@@ -96,15 +79,29 @@
     for (const m of saved) addMessage(m.role, m.text);
   }
 
-  function replaceLastAssistantBubble(text) {
-    const bubbles = messagesEl.querySelectorAll(".msg.bot .bubble");
-    const lastBubble = bubbles[bubbles.length - 1];
-    if (lastBubble) lastBubble.textContent = normalizeOutput(text);
+  function setIntroIfEmpty() {
+    const saved = loadMessages();
+    if (saved.length) return;
+
+    addMessage(
+      "assistant",
+      [
+        "Welcome to Philly.",
+        "",
+        "Tell me:",
+        "1) how much time you have (2 hours / half day / full day)",
+        "2) your vibe (history, food, art, nightlife, family-friendly)",
+        "3) your budget (cheap / mid / splurge)",
+        "4) where you’re starting (hotel, neighborhood, or landmark)",
+        "",
+        "I’ll build a simple plan with nearby options and what to do next."
+      ].join("\n")
+    );
+    persistMessages();
   }
 
   function buildMessagesForAPI() {
-    // Build chat history for the API so the assistant stays consistent
-    // Convert {role, text} -> {role, content}
+    // Take last 20 turns, convert stored {role,text} -> {role,content}
     const saved = loadMessages();
     return saved.slice(-20).map((m) => ({ role: m.role, content: m.text }));
   }
@@ -116,16 +113,14 @@
     addMessage("assistant", "Thinking…");
 
     try {
-      const payload = { messages: buildMessagesForAPI() };
-
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ messages: buildMessagesForAPI() })
       });
 
-      const contentType = res.headers.get("content-type") || "";
-      const raw = contentType.includes("application/json") ? await res.json() : await res.text();
+      const ct = res.headers.get("content-type") || "";
+      const raw = ct.includes("application/json") ? await res.json() : await res.text();
 
       if (!res.ok) {
         const details = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
@@ -140,6 +135,7 @@
       persistMessages();
       scrollToBottom();
     } catch (e) {
+      // Show REAL error instead of generic message
       replaceLastAssistantBubble(`Chat error: ${e.message}`);
       persistMessages();
       scrollToBottom();
@@ -154,7 +150,6 @@
 
   async function loadWeather() {
     try {
-      // Open-Meteo (no API key). Philadelphia lat/lon
       const url =
         "https://api.open-meteo.com/v1/forecast" +
         "?latitude=39.9526&longitude=-75.1652" +
@@ -169,15 +164,13 @@
       const code = j?.current?.weather_code;
       const wind = Math.round(j?.current?.wind_speed_10m);
 
-      const desc = weatherLabel(code);
-      weatherValueEl.textContent = `${temp}°F · ${desc} · Wind ${wind} mph`;
+      weatherValueEl.textContent = `${temp}°F · ${weatherLabel(code)} · Wind ${wind} mph`;
     } catch {
       weatherValueEl.textContent = "Weather unavailable";
     }
   }
 
   function weatherLabel(code) {
-    // WMO weather codes (simplified)
     const map = new Map([
       [0, "Clear"],
       [1, "Mostly clear"],
@@ -202,7 +195,6 @@
     return map.get(code) || "Weather";
   }
 
-  // Wire up UI
   window.addEventListener("load", () => {
     restoreMessages();
     setIntroIfEmpty();
@@ -218,6 +210,17 @@
       inputEl.value = "";
       autosizeTextarea();
       sendMessage(text);
+    });
+
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+        autosizeTextarea();
+        sendMessage(text);
+      }
     });
 
     clearBtn.addEventListener("click", () => {
